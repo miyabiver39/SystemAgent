@@ -82,26 +82,34 @@ systemagent pod list                 # Podmanのみ
 systemagent image list|pull|rm|import <tar>
 systemagent ntp status|set <server>...|sync
 systemagent network show [--all]
+systemagent cluster status|init <name>|token
+systemagent join <token>
+systemagent --node <ノード名> container list   # 他ノードの操作（env/container/image/pod/ntp/network）
 ```
 
 接続先は`--url` → ログイン時のURL → 環境変数`SYSTEMAGENT_URL` → `http://localhost:5000`の順に決まる。`--json`で結果をJSON出力する。ログイン状態は`~/.config/systemagent/session.json`（600）に保存される。開発時は`dotnet run --project src/SystemAgent.Cli -- --url http://localhost:5246 status`のように実行する。
 
-### Linuxノード上での動作確認（WSL）
+### Linuxノード上での動作確認（WSL・3ノード）
 
-コンテナ管理等のOS操作はLinux上でしか動かないため、linux-x64向けにpublishしてWSLのディストリビューション内でrootとして起動する。WSLのディストリビューションはネットワークを共有するため、`sa-alma9`のMariaDBを全ノードから`localhost:3306`で使える（中央DB構成の検証にもなる）。
+OS操作はLinux上でしか動かないため、linux-x64向けにpublishしてWSLのディストリビューション内でrootとして起動する。WSLのディストリビューションはネットワークを共有するため、ノードごとにポートを分け、`sa-alma9`のMariaDBを全ノードで共有する（中央DB構成の検証にもなる）。
 
 ```bash
 dotnet publish src/SystemAgent.Web -c Release -r linux-x64 --self-contained -o artifacts/linux/web
 dotnet publish src/SystemAgent.Cli -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o artifacts/linux/cli
 ```
 
-```bash
-wsl -d sa-alma9 -u root -- sh -c 'cd /mnt/c/<リポジトリ>/artifacts/linux/web && ConnectionStrings__Default="Server=localhost;Port=3306;Database=systemagent;User=systemagent;Password=systemagent_dev;" ./SystemAgent.Web'
+```powershell
+./scripts/dev/start-nodes.ps1   # node-a(5000/5443) node-b(5001/5444) node-c(5002/5445)、ログは artifacts/logs/
+./scripts/dev/stop-nodes.ps1
 ```
 
-Windowsからは http://localhost:5000 で接続できる。2台目以降は`Urls=http://0.0.0.0:5001`等でポートを変えて`sa-ubuntu2404`（`Container__Runtime=docker`でDocker）や`sa-debian`（timesyncd）で起動する。
+注意:
+- Windows側で`wsl.exe`を止めても、ディストリビューション内のプロセスは残る。停止は`stop-nodes.ps1`で行う。
+- `wsl -- <コマンド>`はディストリビューションのログインシェルを経由するため、`sh -c '...'`内の`$VAR`や`$?`が先に展開される。変数を使う場合は`wsl --exec sh -c '...'`とする。
 
-注意: `wsl -- <コマンド>`はディストリビューションのログインシェルを経由するため、`sh -c '...'`内の`$VAR`や`$?`が先に展開されてしまう。変数を使う場合は`wsl --exec sh -c '...'`とする。
+## マルチノード（クラスタ）
+
+[ADR-018](docs/adr/0018-cluster-pki-and-node-proxy.md)。最初の1台で`systemagent cluster init <クラスタ名>`（またはWebUIの「ノード」画面）を実行して自己CAを作る。追加するノードでは初期セットアップ後、既存ノードで発行した参加トークンで`sudo systemagent join <トークン>`を実行する。以降はWebUIの「操作対象ノード」またはCLIの`--node <ノード名>`で、任意の1台から他ノードを操作できる。
 
 ## OS/バージョン対応の追加（コマンドテンプレート）
 
@@ -120,4 +128,5 @@ dotnet ef database update --project src/SystemAgent.Infrastructure --startup-pro
 
 [ADR-013](docs/adr/0013-mvp-implementation-order.md)の①「基盤」を実装済み: 永続化、認証（通常JWT + ローカル緊急認証 + 初期セットアップ）、ユーザー管理、ノード管理（手動登録）、監査ログ、WebUI、CLI。
 ②コンテナ管理を実装済み: コンテナ一覧/起動/停止/再起動/削除/ログ、Pod一覧、イメージ一覧/pull/削除/アーカイブ取り込み、環境検出（Podman 5.8・4.9、Docker 29.1で検証）。
-③のうちNTP設定を実装済み: 同期状態・時刻ソースの表示、NTPサーバーの設定（失敗時は自動で元に戻す）、即時同期（chrony: RHEL系/Debian系、systemd-timesyncdに対応）。ネットワークは参照（インターフェース・経路・DNS）まで実装済みで、設定変更は[QA 0005](docs/qa/questions/0005-network-settings.md)の回答待ち。次は④マルチノード通信（自己CA・mTLS・ノード登録）。
+③のうちNTP設定を実装済み: 同期状態・時刻ソースの表示、NTPサーバーの設定（失敗時は自動で元に戻す）、即時同期（chrony: RHEL系/Debian系、systemd-timesyncdに対応）。ネットワークは参照（インターフェース・経路・DNS）まで実装済みで、設定変更は[QA 0005](docs/qa/questions/0005-network-settings.md)の回答待ち。
+④マルチノード通信を実装済み: 自己CA、参加トークンによるノード参加、mTLSのノード間通信、任意ノードからの他ノード操作。

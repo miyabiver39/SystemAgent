@@ -134,7 +134,16 @@ public sealed class ClusterService(
 
         var nodeId = Guid.NewGuid();
         using var ca = identity.LoadCaWithPrivateKey();
-        using var cert = Pki.SignNodeCsr(ca, request.CsrPem, nodeId, request.NodeName, [request.Address, request.NodeName], now);
+        X509Certificate2 cert;
+        try
+        {
+            cert = Pki.SignNodeCsr(ca, request.CsrPem, nodeId, request.NodeName, [request.Address, request.NodeName], now);
+        }
+        catch (Exception ex) when (ex is System.Security.Cryptography.CryptographicException or ArgumentException)
+        {
+            throw new ArgumentException("証明書署名要求（CSR）が不正です。", ex);
+        }
+        using var _ = cert;
 
         token.UsedAt = now;
         token.UsedByNodeId = nodeId;

@@ -156,7 +156,12 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     private async Task<HttpResponseMessage> SendCoreAsync(
         HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken)
     {
-        if (_nodePrefix is not null && path.StartsWith("api/", StringComparison.Ordinal)) path = _nodePrefix + path;
+        if (_nodePrefix is not null && path.StartsWith("api/", StringComparison.Ordinal))
+        {
+            path = _nodePrefix + path;
+            // 他ノードへの転送APIは認証が必要（転送先で認証不要なAPIでも）
+            authorize = true;
+        }
         using var request = new HttpRequestMessage(method, path);
         request.Content = body switch
         {
