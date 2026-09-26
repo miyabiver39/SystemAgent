@@ -17,6 +17,9 @@
     "RateLimitKBps": 10240,
     "DailyAt": ""
   },
+  "HA": {
+    "RejoinDelaySeconds": 15
+  },
   "Services": {
     "Managed": [
       "chronyd",

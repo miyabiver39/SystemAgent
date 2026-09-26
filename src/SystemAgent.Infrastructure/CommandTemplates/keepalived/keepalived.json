@@ -1,0 +1,17 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "keepalived",
+  "capability": "keepalived",
+  "description": "keepalived 2.0以降（設定の検証に -t を使う）。RHEL 8/9、Debian 10以降、Ubuntu 20.04以降。検証: keepalived 2.2 (AlmaLinux 9)",
+  "executable": "keepalived",
+  "match": { "tool": "keepalived", "osIds": ["*"], "minToolVersion": "2.0" },
+  "settings": {
+    "configFile": "/etc/keepalived/keepalived.conf",
+    "service": "keepalived"
+  },
+  "commands": {
+    "configTest": { "args": ["-t", "-f", "{file}"] },
+    "restartService": { "executable": "systemctl", "args": ["restart", "{service}"], "timeoutSeconds": 120 },
+    "stopService": { "executable": "systemctl", "args": ["stop", "{service}"], "timeoutSeconds": 120 }
+  }
+}

@@ -25,6 +25,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
 
         var (status, detail) = exception switch
         {
+            DatabaseOperationException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
             _ when exception is DbException || exception.InnerException is DbException =>
                 (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),
             CommandFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),

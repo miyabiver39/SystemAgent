@@ -62,6 +62,47 @@
   <data name="Services_Since" xml:space="preserve"><value>開始時刻</value></data>
   <data name="Services_Enable" xml:space="preserve"><value>自動起動を有効化</value></data>
   <data name="Services_Disable" xml:space="preserve"><value>自動起動を無効化</value></data>
+  <data name="Nav_Ha" xml:space="preserve"><value>冗長化（HA）</value></data>
+  <data name="Ha_Title" xml:space="preserve"><value>冗長化（Keepalived + DB昇格）</value></data>
+  <data name="Ha_Hint" xml:space="preserve"><value>VIPを保持したノードのDBがマスターになります。keepalived の状態変化はSystemAgentに通知され、MASTERならDBを昇格、それ以外は読み取り専用にします。前提: 全ノードのMariaDBで log_bin・log_slave_updates・gtid_strict_mode を有効にし、server_id を一意にしてください。</value></data>
+  <data name="Ha_RejoinPending" xml:space="preserve"><value>このノードのDBは、現在のマスターのレプリカとしての再参加が承認待ちです（手動復帰モード）。データの状態を確認したうえで承認してください。</value></data>
+  <data name="Ha_ApproveRejoin" xml:space="preserve"><value>レプリカとして再参加を承認</value></data>
+  <data name="Ha_Rejoined" xml:space="preserve"><value>レプリカとして再参加しました。</value></data>
+  <data name="Ha_VrrpState" xml:space="preserve"><value>VRRPの状態</value></data>
+  <data name="Ha_LocalDb" xml:space="preserve"><value>このノードのDB</value></data>
+  <data name="Ha_NoLocalDb" xml:space="preserve"><value>DB管理用接続が未設定</value></data>
+  <data name="Ha_ReadOnly" xml:space="preserve"><value>読み取り専用</value></data>
+  <data name="Ha_Writable" xml:space="preserve"><value>書き込み可（マスター）</value></data>
+  <data name="Ha_ReplicaOf" xml:space="preserve"><value>レプリカ:</value></data>
+  <data name="Ha_Replicating" xml:space="preserve"><value>複製中</value></data>
+  <data name="Ha_ReplicationStopped" xml:space="preserve"><value>複製停止</value></data>
+  <data name="Ha_NotReplica" xml:space="preserve"><value>レプリカではない</value></data>
+  <data name="Ha_ReplicationError" xml:space="preserve"><value>複製エラー</value></data>
+  <data name="Ha_Prerequisite" xml:space="preserve"><value>前提条件</value></data>
+  <data name="Ha_Settings" xml:space="preserve"><value>HA設定（このノード）</value></data>
+  <data name="Ha_Enabled" xml:space="preserve"><value>有効にする（無効にすると keepalived を停止）</value></data>
+  <data name="Ha_Interface" xml:space="preserve"><value>インターフェース</value></data>
+  <data name="Ha_Priority" xml:space="preserve"><value>優先度（1〜254）</value></data>
+  <data name="Ha_AuthPass" xml:space="preserve"><value>VRRP認証パスワード（英数字8文字以内）</value></data>
+  <data name="Ha_KeepCurrent" xml:space="preserve"><value>（空欄のままなら現在の値を維持）</value></data>
+  <data name="Ha_Peers" xml:space="preserve"><value>ユニキャストの相手IP（空ならマルチキャスト）</value></data>
+  <data name="Ha_UnicastSource" xml:space="preserve"><value>ユニキャストの送信元IP</value></data>
+  <data name="Ha_ReturnMode" xml:space="preserve"><value>元マスター復帰時</value></data>
+  <data name="Ha_Manual" xml:space="preserve"><value>手動（承認待ちにする）</value></data>
+  <data name="Ha_Auto" xml:space="preserve"><value>自動（レプリカとして再参加）</value></data>
+  <data name="Ha_DbHost" xml:space="preserve"><value>このノードのDB ホスト</value></data>
+  <data name="Ha_DbPort" xml:space="preserve"><value>このノードのDB ポート</value></data>
+  <data name="Ha_DbUser" xml:space="preserve"><value>DB管理者ユーザー</value></data>
+  <data name="Ha_DbPassword" xml:space="preserve"><value>DB管理者パスワード</value></data>
+  <data name="Ha_ReplUser" xml:space="preserve"><value>レプリケーション用ユーザー</value></data>
+  <data name="Ha_ReplPassword" xml:space="preserve"><value>レプリケーション用パスワード</value></data>
+  <data name="Ha_ReplHost" xml:space="preserve"><value>再参加先ホスト</value></data>
+  <data name="Ha_ReplHostDefault" xml:space="preserve"><value>（空ならVIP）</value></data>
+  <data name="Ha_ReplPort" xml:space="preserve"><value>再参加先ポート</value></data>
+  <data name="Ha_SaveApply" xml:space="preserve"><value>保存して keepalived に適用</value></data>
+  <data name="Ha_ApplyHint" xml:space="preserve"><value>keepalived -t で検証してから置き換え、再起動に失敗した場合は元に戻します。</value></data>
+  <data name="Ha_Saved" xml:space="preserve"><value>HA設定を保存し、keepalived に適用しました。</value></data>
+  <data name="Ha_History" xml:space="preserve"><value>履歴</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

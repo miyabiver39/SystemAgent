@@ -1,0 +1,214 @@
+@page "/ha"
+@using SystemAgent.Core.Ha
+@inherits NodeScopedPage
+
+<PageTitle>@L["Ha_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Ha_Title"]</h1>
+<p class="hint">@L["Ha_Hint"]</p>
+
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
+
+@if (_status is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+    return;
+}
+
+@if (_status.RejoinPending)
+{
+    <section class="notice warn">
+        <p>@L["Ha_RejoinPending"]</p>
+        <button type="button" class="primary" disabled="@_busy" @onclick="RejoinAsync">@L["Ha_ApproveRejoin"]</button>
+    </section>
+}
+
+<div class="tiles">
+    <div class="tile">
+        <div class="tile-label">@L["Ha_VrrpState"]</div>
+        <div class="tile-value @(_status.State == VrrpState.Master ? "ok" : "")">@_status.State</div>
+        <div class="hint">@Formatting.DateTime(_status.Since)</div>
+    </div>
+    <div class="tile">
+        <div class="tile-label">@L["Ha_LocalDb"]</div>
+        @if (_status.Db is not { } db)
+        {
+            <div class="tile-value small muted">@L["Ha_NoLocalDb"]</div>
+        }
+        else if (!db.Reachable)
+        {
+            <div class="tile-value small bad">@L["Dashboard_DbDown"]</div>
+            <div class="hint">@db.Error</div>
+        }
+        else
+        {
+            <div class="tile-value small">@(db.ReadOnly ? L["Ha_ReadOnly"] : L["Ha_Writable"])</div>
+            <div class="hint">
+                server_id @db.ServerId /
+                @(db.IsReplica ? $"{L["Ha_ReplicaOf"]} {db.SourceHost}:{db.SourcePort}（{(db.ReplicationRunning ? L["Ha_Replicating"] : L["Ha_ReplicationStopped"])}）" : L["Ha_NotReplica"])
+            </div>
+        }
+    </div>
+</div>
+
+@if (_status.Db is { } d)
+{
+    @if (d.LastError is { Length: > 0 } lastError)
+    {
+        <p class="notice error">@L["Ha_ReplicationError"]: @lastError</p>
+    }
+    @foreach (var problem in d.PrerequisiteProblems ?? [])
+    {
+        <p class="notice warn">@L["Ha_Prerequisite"]: @problem</p>
+    }
+}
+
+<section class="card">
+    <h2>@L["Ha_Settings"]</h2>
+    <EditForm Model="_form" OnSubmit="SaveAsync" FormName="ha-settings" class="grid-form">
+        <label class="checkbox"><InputCheckbox @bind-Value="_form.Enabled" /> @L["Ha_Enabled"]</label>
+        <label>@L["Ha_Interface"]<InputText @bind-Value="_form.Interface" placeholder="eth0" /></label>
+        <label>VIP<InputText @bind-Value="_form.VirtualIp" placeholder="10.0.0.100/24" /></label>
+        <label>VRID<InputNumber @bind-Value="_form.VirtualRouterId" /></label>
+        <label>@L["Ha_Priority"]<InputNumber @bind-Value="_form.Priority" /></label>
+        <label>@L["Ha_AuthPass"]<InputText type="password" @bind-Value="_form.AuthPass" placeholder="@(_status.Settings?.HasAuthPass == true ? L["Ha_KeepCurrent"] : "")" autocomplete="new-password" /></label>
+        <label>@L["Ha_Peers"]<InputText @bind-Value="_form.Peers" placeholder="10.0.0.12, 10.0.0.13" /></label>
+        <label>@L["Ha_UnicastSource"]<InputText @bind-Value="_form.UnicastSource" /></label>
+        <label>
+            @L["Ha_ReturnMode"]
+            <InputSelect @bind-Value="_form.ReturnMode">
+                <option value="@HaReturnMode.Manual">@L["Ha_Manual"]</option>
+                <option value="@HaReturnMode.Auto">@L["Ha_Auto"]</option>
+            </InputSelect>
+        </label>
+        <label>@L["Ha_DbHost"]<InputText @bind-Value="_form.DbHost" /></label>
+        <label>@L["Ha_DbPort"]<InputNumber @bind-Value="_form.DbPort" /></label>
+        <label>@L["Ha_DbUser"]<InputText @bind-Value="_form.DbUser" /></label>
+        <label>@L["Ha_DbPassword"]<InputText type="password" @bind-Value="_form.DbPassword" placeholder="@(_status.Settings?.LocalDbTarget is not null ? L["Ha_KeepCurrent"] : "")" autocomplete="new-password" /></label>
+        <label>@L["Ha_ReplUser"]<InputText @bind-Value="_form.ReplUser" /></label>
+        <label>@L["Ha_ReplPassword"]<InputText type="password" @bind-Value="_form.ReplPassword" placeholder="@(_status.Settings?.HasReplicationPassword == true ? L["Ha_KeepCurrent"] : "")" autocomplete="new-password" /></label>
+        <label>@L["Ha_ReplHost"]<InputText @bind-Value="_form.ReplHost" placeholder="@L["Ha_ReplHostDefault"]" /></label>
+        <label>@L["Ha_ReplPort"]<InputNumber @bind-Value="_form.ReplPort" /></label>
+        <div class="form-actions">
+            <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Ha_SaveApply"])</button>
+            <span class="hint">@L["Ha_ApplyHint"]</span>
+        </div>
+    </EditForm>
+</section>
+
+@if (_status.History.Count > 0)
+{
+    <section>
+        <h2>@L["Ha_History"]</h2>
+        <table>
+            <tbody>
+                @foreach (var e in _status.History)
+                {
+                    <tr><td style="white-space:nowrap">@Formatting.DateTime(e.At)</td><td>@e.Message</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+@code {
+    private HaStatusResponse? _status;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+    private HaForm _form = new();
+
+    protected override async Task LoadAsync()
+    {
+        _error = null;
+        _status = null;
+        try
+        {
+            _status = await Api.GetHaAsync();
+            if (_status.Settings is { } s)
+            {
+                var db = s.LocalDbTarget?.Split('@', ':') ?? [];
+                _form = new HaForm
+                {
+                    Enabled = s.Enabled, Interface = s.Interface, VirtualIp = s.VirtualIp, VirtualRouterId = s.VirtualRouterId,
+                    Priority = s.Priority, Peers = string.Join(", ", s.UnicastPeers), UnicastSource = s.UnicastSourceIp ?? "",
+                    ReturnMode = s.ReturnMode, DbUser = db.ElementAtOrDefault(0) ?? "root", DbHost = db.ElementAtOrDefault(1) ?? "127.0.0.1",
+                    DbPort = int.TryParse(db.ElementAtOrDefault(2), out var port) ? port : 3306,
+                    ReplUser = s.ReplicationUser ?? "", ReplHost = s.ReplicationSourceHost == s.VirtualIp.Split('/')[0] ? "" : s.ReplicationSourceHost,
+                    ReplPort = s.ReplicationSourcePort,
+                };
+            }
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private Task SaveAsync() => RunAsync(async () =>
+    {
+        await Api.SaveHaAsync(new SetHaSettingsRequest(
+            _form.Enabled, _form.Interface.Trim(), _form.VirtualIp.Trim(), _form.VirtualRouterId, _form.Priority,
+            string.IsNullOrEmpty(_form.AuthPass) ? null : _form.AuthPass,
+            _form.Peers.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries), _form.UnicastSource, _form.ReturnMode,
+            _form.DbHost, _form.DbPort, _form.DbUser, _form.DbPassword, _form.ReplUser, _form.ReplPassword,
+            _form.ReplHost, _form.ReplPort, Apply: true));
+        _message = L["Ha_Saved"];
+    });
+
+    private Task RejoinAsync() => RunAsync(async () =>
+    {
+        await Api.RejoinHaAsync();
+        _message = L["Ha_Rejoined"];
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            await action();
+            var message = _message;
+            await LoadAsync();
+            _message = message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class HaForm
+    {
+        public bool Enabled { get; set; } = true;
+        public string Interface { get; set; } = "";
+        public string VirtualIp { get; set; } = "";
+        public int VirtualRouterId { get; set; } = 51;
+        public int Priority { get; set; } = 100;
+        public string AuthPass { get; set; } = "";
+        public string Peers { get; set; } = "";
+        public string UnicastSource { get; set; } = "";
+        public HaReturnMode ReturnMode { get; set; } = HaReturnMode.Manual;
+        public string DbHost { get; set; } = "127.0.0.1";
+        public int DbPort { get; set; } = 3306;
+        public string DbUser { get; set; } = "root";
+        public string DbPassword { get; set; } = "";
+        public string ReplUser { get; set; } = "";
+        public string ReplPassword { get; set; } = "";
+        public string ReplHost { get; set; } = "";
+        public int ReplPort { get; set; } = 3306;
+    }
+}

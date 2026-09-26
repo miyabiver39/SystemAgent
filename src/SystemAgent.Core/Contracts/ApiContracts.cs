@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using SystemAgent.Core.CapabilityProviders;
+using SystemAgent.Core.Ha;
 using SystemAgent.Core.Nodes;
 
 namespace SystemAgent.Core.Contracts;
@@ -79,6 +80,41 @@ public sealed record RestoreBackupRequest([Required] string Confirm);
 public sealed record ManagedServiceResponse(ServiceStatus Status, bool Operable);
 
 public sealed record ServiceLogsResponse(string Logs);
+
+/// <summary>HA設定（パスワード類は返さず、設定済みかどうかだけ返す）。</summary>
+public sealed record HaSettingsView(
+    bool Enabled, string Interface, string VirtualIp, int VirtualRouterId, int Priority, bool HasAuthPass,
+    IReadOnlyList<string> UnicastPeers, string? UnicastSourceIp, HaReturnMode ReturnMode,
+    string? LocalDbTarget, string? ReplicationUser, bool HasReplicationPassword, string ReplicationSourceHost, int ReplicationSourcePort);
+
+public sealed record HaStatusResponse(
+    HaSettingsView? Settings, VrrpState State, DateTimeOffset? Since, bool RejoinPending, DbRoleStatus? Db, IReadOnlyList<HaEvent> History);
+
+/// <param name="AuthPass">null なら既存の値を維持、空文字なら認証なし。</param>
+/// <param name="LocalDbPassword">空なら既存のDB管理用接続を維持する。</param>
+/// <param name="ReplicationPassword">空なら既存の値を維持する。</param>
+/// <param name="Apply">保存後に keepalived.conf を生成して適用する。</param>
+public sealed record SetHaSettingsRequest(
+    bool Enabled,
+    [Required] string Interface,
+    [Required] string VirtualIp,
+    [Range(1, 255)] int VirtualRouterId,
+    [Range(1, 254)] int Priority,
+    string? AuthPass,
+    IReadOnlyList<string>? UnicastPeers,
+    string? UnicastSourceIp,
+    HaReturnMode ReturnMode,
+    string? LocalDbHost,
+    int LocalDbPort,
+    string? LocalDbUser,
+    string? LocalDbPassword,
+    string? ReplicationUser,
+    string? ReplicationPassword,
+    string? ReplicationSourceHost,
+    int ReplicationSourcePort,
+    bool Apply);
+
+public sealed record HaNotifyRequest(VrrpState State);
 
 public sealed record SetupStatusResponse(bool Required);
 

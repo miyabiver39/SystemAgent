@@ -9,8 +9,10 @@
 # エディタ/プレビューツールが生成するHTMLプレビュー等
 docs/qa/**/*.html
 
-# 開発時のローカル秘密情報（master.key等）
+# 開発時のローカル秘密情報（master.key等）・HAの状態とフック用トークン
 .secrets/
+ha-state.json
+ha-hook-token
 
 # User-specific files
 *.rsuser

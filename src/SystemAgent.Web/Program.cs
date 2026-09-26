@@ -86,6 +86,8 @@ var app = builder.Build();
 
 // 秘密情報ストアを起動時に初期化し、初回起動時の初期パスワード案内をログに出す
 app.Services.GetRequiredService<ILocalSecretStore>();
+// keepalived の notify から呼ばれる CLI が使うフック用トークン（root専用ファイル）
+app.Services.GetRequiredService<SystemAgent.Infrastructure.Ha.HaService>().EnsureHookToken();
 
 app.UseRequestLocalization("ja-JP");
 

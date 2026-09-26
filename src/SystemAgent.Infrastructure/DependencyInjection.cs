@@ -11,6 +11,7 @@ using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
 using SystemAgent.Infrastructure.Backup;
 using SystemAgent.Infrastructure.Cluster;
+using SystemAgent.Infrastructure.Ha;
 using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.CapabilityProviders.Network;
@@ -70,6 +71,11 @@ public static class DependencyInjection
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();
         services.AddSingleton<ServiceManagement>();
+        services.AddSingleton<HaSettingsStore>();
+        // HAの状態・フック用トークンは秘密情報ディレクトリの親（既定 /var/lib/systemagent）に置く
+        services.AddSingleton(new HaStateStore(Path.GetDirectoryName(Path.GetFullPath(secretStorePath))!));
+        services.AddSingleton<DbRoleManager>();
+        services.AddSingleton<HaService>();
         services.AddSingleton<BackupService>();
         services.AddHostedService<BackupScheduler>();
         services.AddScoped<INodeService, NodeService>();

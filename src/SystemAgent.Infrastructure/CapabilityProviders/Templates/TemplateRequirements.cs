@@ -82,6 +82,20 @@ public static class TemplateRequirements
                 },
                 Settings: new Dictionary<string, SettingRequirement>()),
 
+            ["keepalived"] = new(
+                Commands: new Dictionary<string, CommandRequirement>
+                {
+                    // 生成した設定ファイル（{file}）を検証する。終了コード0なら妥当
+                    ["configTest"] = new(true, ["file"]),
+                    ["restartService"] = new(true, ["service"]),
+                    ["stopService"] = new(true, ["service"]),
+                },
+                Settings: new Dictionary<string, SettingRequirement>
+                {
+                    ["configFile"] = new(),
+                    ["service"] = new(),
+                }),
+
             ["network"] = new(
                 Commands: new Dictionary<string, CommandRequirement>
                 {

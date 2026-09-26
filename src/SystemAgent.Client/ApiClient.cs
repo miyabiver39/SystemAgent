@@ -92,6 +92,18 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task MigrateDatabaseAsync(CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Post, "api/system/database/migrate", null, authorize: true, cancellationToken);
 
+    public Task<HaStatusResponse> GetHaAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<HaStatusResponse>(HttpMethod.Get, "api/ha", null, authorize: true, cancellationToken);
+
+    public Task SaveHaAsync(SetHaSettingsRequest request, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Put, "api/ha", request, authorize: true, cancellationToken);
+
+    public Task ApplyHaAsync(CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, "api/ha/apply", null, authorize: true, cancellationToken);
+
+    public Task RejoinHaAsync(CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, "api/ha/rejoin", null, authorize: true, cancellationToken);
+
     public Task<List<ManagedServiceResponse>> GetServicesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<ManagedServiceResponse>>(HttpMethod.Get, "api/services", null, authorize: true, cancellationToken);
 

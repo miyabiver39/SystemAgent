@@ -35,3 +35,6 @@ public sealed class CommandFailedException(string command, int exitCode, string 
     public int ExitCode { get; } = exitCode;
     public string StandardError { get; } = standardError;
 }
+
+/// <summary>このノードのDB（HAの昇格・降格用の接続）に対する操作が失敗した。中央DBの停止（503）とは区別する。</summary>
+public sealed class DatabaseOperationException(string message, Exception? inner = null) : Exception(message, inner);
