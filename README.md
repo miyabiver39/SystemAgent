@@ -86,6 +86,7 @@ systemagent cluster status|init <name>|token
 systemagent join <token>
 systemagent db status|set|migrate
 systemagent backup list|create|download|rm|restore
+systemagent service list|status|start|stop|restart|enable|disable|logs
 systemagent --node <ノード名> container list   # 他ノードの操作（env/container/image/pod/ntp/network）
 ```
 

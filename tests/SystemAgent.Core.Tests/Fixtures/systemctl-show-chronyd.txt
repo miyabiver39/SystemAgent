@@ -1,0 +1,8 @@
+MainPID=140
+Id=chronyd.service
+Description=NTP client/server
+LoadState=loaded
+ActiveState=active
+SubState=running
+UnitFileState=enabled
+ActiveEnterTimestamp=Sat 2026-09-26 14:35:51 JST

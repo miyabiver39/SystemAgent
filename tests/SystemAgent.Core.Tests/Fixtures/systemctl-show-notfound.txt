@@ -1,0 +1,8 @@
+MainPID=0
+Id=keepalived.service
+Description=keepalived.service
+LoadState=not-found
+ActiveState=inactive
+SubState=dead
+UnitFileState=
+ActiveEnterTimestamp=

@@ -1,0 +1,20 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "systemctl",
+  "capability": "service-manager",
+  "description": "systemd（RHEL 7以降、Debian 8以降、Ubuntu 16.04以降）。検証: systemd 252 (AlmaLinux 9)",
+  "executable": "systemctl",
+  "match": { "tool": "systemctl", "osIds": ["*"] },
+  "commands": {
+    "status": {
+      "args": ["show", "{unit}", "--property=Id,Description,LoadState,ActiveState,SubState,UnitFileState,MainPID,ActiveEnterTimestamp", "--no-pager"],
+      "parser": "systemctl-show"
+    },
+    "start": { "args": ["start", "{unit}"], "timeoutSeconds": 120 },
+    "stop": { "args": ["stop", "{unit}"], "timeoutSeconds": 120 },
+    "restart": { "args": ["restart", "{unit}"], "timeoutSeconds": 180 },
+    "enable": { "args": ["enable", "{unit}"] },
+    "disable": { "args": ["disable", "{unit}"] },
+    "logs": { "executable": "journalctl", "args": ["-u", "{unit}", "-n", "{lines}", "--no-pager", "-o", "short-iso"] }
+  }
+}

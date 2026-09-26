@@ -15,6 +15,7 @@ using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.CapabilityProviders.Network;
 using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
+using SystemAgent.Infrastructure.CapabilityProviders.Services;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;
 using SystemAgent.Infrastructure.Health;
@@ -68,6 +69,7 @@ public static class DependencyInjection
         services.AddSingleton<ContainerRuntimeResolver>();
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();
+        services.AddSingleton<ServiceManagement>();
         services.AddSingleton<BackupService>();
         services.AddHostedService<BackupScheduler>();
         services.AddScoped<INodeService, NodeService>();

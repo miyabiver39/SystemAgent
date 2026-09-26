@@ -75,6 +75,11 @@ public sealed record BackupListResponse(BackupSettingsResponse Settings, IReadOn
 /// <param name="Confirm">誤操作防止のため、復元するファイル名をもう一度指定する。</param>
 public sealed record RestoreBackupRequest([Required] string Confirm);
 
+/// <param name="Operable">このサービスを操作（起動・停止等）できるか（管理対象か）。</param>
+public sealed record ManagedServiceResponse(ServiceStatus Status, bool Operable);
+
+public sealed record ServiceLogsResponse(string Logs);
+
 public sealed record SetupStatusResponse(bool Required);
 
 public sealed record SetupRequest(

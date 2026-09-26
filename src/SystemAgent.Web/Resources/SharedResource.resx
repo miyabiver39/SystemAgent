@@ -53,6 +53,15 @@
   <data name="Backups_RestoreWarning" xml:space="preserve"><value>DBの内容を {0} の内容で置き換えます。現在のDBの内容（ユーザー・ノード・監査ログ等）は失われ、全ノードに影響します。</value></data>
   <data name="Backups_RestoreConfirm" xml:space="preserve"><value>続けるには、ファイル名を入力してください</value></data>
   <data name="Backups_Restored" xml:space="preserve"><value>{0} から復元しました。必要に応じて「設定」でマイグレーションを適用してください。</value></data>
+  <data name="Nav_Services" xml:space="preserve"><value>サービス</value></data>
+  <data name="Services_Title" xml:space="preserve"><value>サービス（systemd）</value></data>
+  <data name="Services_Hint" xml:space="preserve"><value>管理対象のサービス（/etc/systemagent/systemagent.json の Services:Managed）のうち、このノードに存在するものを表示します。SystemAgent自身とsshdは停止・無効化できません。</value></data>
+  <data name="Services_List" xml:space="preserve"><value>管理対象サービス</value></data>
+  <data name="Services_Name" xml:space="preserve"><value>サービス</value></data>
+  <data name="Services_Enabled" xml:space="preserve"><value>自動起動</value></data>
+  <data name="Services_Since" xml:space="preserve"><value>開始時刻</value></data>
+  <data name="Services_Enable" xml:space="preserve"><value>自動起動を有効化</value></data>
+  <data name="Services_Disable" xml:space="preserve"><value>自動起動を無効化</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

@@ -92,6 +92,18 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task MigrateDatabaseAsync(CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Post, "api/system/database/migrate", null, authorize: true, cancellationToken);
 
+    public Task<List<ManagedServiceResponse>> GetServicesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ManagedServiceResponse>>(HttpMethod.Get, "api/services", null, authorize: true, cancellationToken);
+
+    public Task<ManagedServiceResponse> GetServiceAsync(string unit, CancellationToken cancellationToken = default) =>
+        SendAsync<ManagedServiceResponse>(HttpMethod.Get, $"api/services/{Uri.EscapeDataString(unit)}", null, authorize: true, cancellationToken);
+
+    public Task ServiceActionAsync(string unit, ServiceAction action, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, $"api/services/{Uri.EscapeDataString(unit)}/{action}", null, authorize: true, cancellationToken);
+
+    public Task<ServiceLogsResponse> GetServiceLogsAsync(string unit, int lines, CancellationToken cancellationToken = default) =>
+        SendAsync<ServiceLogsResponse>(HttpMethod.Get, $"api/services/{Uri.EscapeDataString(unit)}/logs?lines={lines}", null, authorize: true, cancellationToken);
+
     public Task<BackupListResponse> GetBackupsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<BackupListResponse>(HttpMethod.Get, "api/backups", null, authorize: true, cancellationToken);
 

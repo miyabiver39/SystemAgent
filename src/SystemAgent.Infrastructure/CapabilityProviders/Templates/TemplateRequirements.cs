@@ -1,6 +1,7 @@
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.CapabilityProviders.Network;
 using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
+using SystemAgent.Infrastructure.CapabilityProviders.Services;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Templates;
 
@@ -64,6 +65,20 @@ public static class TemplateRequirements
                     ["dump"] = new(true, ["defaults", "database"]),
                     // 標準入力からSQLを読む
                     ["restore"] = new(true, ["defaults", "database"]),
+                },
+                Settings: new Dictionary<string, SettingRequirement>()),
+
+            ["service-manager"] = new(
+                Commands: new Dictionary<string, CommandRequirement>
+                {
+                    ["status"] = new(true, ["unit"], ServiceOutputParsers.Status.Keys),
+                    // ServiceAction の小文字名と対応する
+                    ["start"] = new(true, ["unit"]),
+                    ["stop"] = new(true, ["unit"]),
+                    ["restart"] = new(true, ["unit"]),
+                    ["enable"] = new(true, ["unit"]),
+                    ["disable"] = new(true, ["unit"]),
+                    ["logs"] = new(true, ["unit", "lines"]),
                 },
                 Settings: new Dictionary<string, SettingRequirement>()),
 

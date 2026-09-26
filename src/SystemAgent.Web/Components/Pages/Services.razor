@@ -1,0 +1,156 @@
+@page "/services"
+@using SystemAgent.Core.CapabilityProviders
+@inherits NodeScopedPage
+
+<PageTitle>@L["Services_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Services_Title"]</h1>
+<p class="hint">@L["Services_Hint"]</p>
+
+@if (_unavailable is not null)
+{
+    <p class="notice warn">@_unavailable</p>
+    return;
+}
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+
+@if (_services is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+}
+else
+{
+    <div class="section-header">
+        <h2>@L["Services_List"]</h2>
+        <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>@L["Services_Name"]</th><th>@L["Containers_State"]</th><th>@L["Services_Enabled"]</th>
+                <th>@L["Services_Since"]</th><th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var s in _services.Select(x => x.Status))
+            {
+                <tr @key="s.Name">
+                    <td>@s.Name<div class="hint">@s.Description</div></td>
+                    <td><span class="badge @StateClass(s)">@s.ActiveState</span> <span class="hint">@s.SubState</span></td>
+                    <td>@s.UnitFileState</td>
+                    <td>@Formatting.DateTime(s.ActiveSince)</td>
+                    <td>
+                        @if (_busy == s.Name)
+                        {
+                            <span class="muted">@L["Common_Processing"]</span>
+                        }
+                        else
+                        {
+                            @if (s.ActiveState == "active")
+                            {
+                                <button type="button" class="link" @onclick="() => ActAsync(s, ServiceAction.Restart)">@L["Containers_Restart"]</button>
+                                <ConfirmButton Label="@L["Containers_Stop"]" OnConfirmed="() => ActAsync(s, ServiceAction.Stop)" />
+                            }
+                            else if (s.UnitFileState != "masked")
+                            {
+                                <button type="button" class="link" @onclick="() => ActAsync(s, ServiceAction.Start)">@L["Containers_Start"]</button>
+                            }
+                            @if (s.UnitFileState == "enabled")
+                            {
+                                <ConfirmButton Label="@L["Services_Disable"]" OnConfirmed="() => ActAsync(s, ServiceAction.Disable)" />
+                            }
+                            else if (s.UnitFileState == "disabled")
+                            {
+                                <button type="button" class="link" @onclick="() => ActAsync(s, ServiceAction.Enable)">@L["Services_Enable"]</button>
+                            }
+                            <button type="button" class="link" @onclick="() => ShowLogsAsync(s.Name)">@L["Containers_Logs"]</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    @if (_logsFor is not null)
+    {
+        <div class="card">
+            <div class="section-header">
+                <h2>@L["Containers_Logs"]: @_logsFor</h2>
+                <button type="button" class="link" @onclick="() => ShowLogsAsync(_logsFor)">@L["Common_Reload"]</button>
+                <button type="button" class="link" @onclick="() => _logsFor = null">@L["Common_Close"]</button>
+            </div>
+            <pre class="logs">@(string.IsNullOrEmpty(_logs) ? L["Containers_LogsEmpty"] : _logs)</pre>
+        </div>
+    }
+}
+
+@code {
+    private List<ManagedServiceResponse>? _services;
+    private string? _unavailable;
+    private string? _error;
+    private string? _busy;
+    private string? _logsFor;
+    private string? _logs;
+
+    private static string StateClass(ServiceStatus s) => s.ActiveState switch
+    {
+        "active" => "state-running",
+        "failed" => "state-exited",
+        "activating" or "deactivating" or "reloading" => "state-restarting",
+        _ => "state-created",
+    };
+
+    protected override async Task LoadAsync()
+    {
+        _error = null;
+        _unavailable = null;
+        _logsFor = null;
+        try
+        {
+            _services = await Api.GetServicesAsync();
+        }
+        catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.NotImplemented or HttpStatusCode.BadGateway)
+        {
+            _unavailable = ex.Message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task ActAsync(ServiceStatus s, ServiceAction action)
+    {
+        _busy = s.Name;
+        _error = null;
+        try
+        {
+            await Api.ServiceActionAsync(s.Name, action);
+            _services = await Api.GetServicesAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = null;
+        }
+    }
+
+    private async Task ShowLogsAsync(string name)
+    {
+        _logsFor = name;
+        try
+        {
+            _logs = (await Api.GetServiceLogsAsync(name, 200)).Logs;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

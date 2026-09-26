@@ -1,0 +1,8 @@
+MainPID=0
+Id=NetworkManager.service
+Description=NetworkManager.service
+LoadState=masked
+ActiveState=inactive
+SubState=dead
+UnitFileState=masked
+ActiveEnterTimestamp=

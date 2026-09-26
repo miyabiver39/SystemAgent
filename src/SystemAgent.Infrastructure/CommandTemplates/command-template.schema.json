@@ -15,7 +15,7 @@
     },
     "capability": {
       "description": "対応する機能。",
-      "enum": ["container-runtime", "ntp", "network", "db-backup"]
+      "enum": ["container-runtime", "ntp", "network", "db-backup", "service-manager"]
     },
     "settings": {
       "description": "コマンド以外の差分（設定ファイルのパス・サービス名等）。コマンドのプレースホルダとしても参照できる。必須キーはcapabilityごとにTemplateRequirements.csで定義。",

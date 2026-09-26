@@ -16,5 +16,23 @@
     "Retention": 7,
     "RateLimitKBps": 10240,
     "DailyAt": ""
+  },
+  "Services": {
+    "Managed": [
+      "chronyd",
+      "chrony",
+      "systemd-timesyncd",
+      "keepalived",
+      "mariadb",
+      "mysqld",
+      "podman",
+      "podman.socket",
+      "docker",
+      "NetworkManager",
+      "systemd-networkd",
+      "nginx",
+      "sshd",
+      "ssh"
+    ]
   }
 }
