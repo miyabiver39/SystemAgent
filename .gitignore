@@ -486,3 +486,6 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# CLIのセッションファイル（誤ってリポジトリ直下に作られた場合の保険）
+systemagent/session.json
