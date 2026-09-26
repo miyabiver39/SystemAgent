@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\SystemAgent.Core\SystemAgent.Core.csproj" />
+    <ProjectReference Include="..\..\src\SystemAgent.Infrastructure\SystemAgent.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

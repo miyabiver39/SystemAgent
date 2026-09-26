@@ -9,6 +9,9 @@
 # エディタ/プレビューツールが生成するHTMLプレビュー等
 docs/qa/**/*.html
 
+# 開発時のローカル秘密情報（master.key等）
+.secrets/
+
 # User-specific files
 *.rsuser
 *.suo
