@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# エディタ/プレビューツールが生成するHTMLプレビュー等
+docs/qa/**/*.html
+
 # User-specific files
 *.rsuser
 *.suo
