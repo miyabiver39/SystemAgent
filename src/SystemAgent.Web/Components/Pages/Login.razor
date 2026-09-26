@@ -1,0 +1,99 @@
+@page "/login"
+@layout LoginLayout
+@inject ApiClient Api
+@inject TokenStore Tokens
+@inject NavigationManager Navigation
+
+<PageTitle>@L["Login_Title"] - @L["AppName"]</PageTitle>
+
+<div class="card login-card">
+    <h1>@L["AppName"]</h1>
+
+    @if (_databaseAvailable == false)
+    {
+        <p class="notice warn">@L["Login_DbDown"]</p>
+    }
+
+    <EditForm Model="_form" OnSubmit="SubmitAsync" FormName="login">
+        <label>
+            @L["Login_UserName"]
+            <InputText @bind-Value="_form.UserName" autocomplete="username" />
+        </label>
+        <label>
+            @L["Login_Password"]
+            <InputText type="password" @bind-Value="_form.Password" autocomplete="current-password" />
+        </label>
+        <label class="checkbox">
+            <InputCheckbox @bind-Value="_form.Emergency" disabled="@(_databaseAvailable == false)" />
+            @L["Login_Emergency"]
+        </label>
+        @if (_form.Emergency)
+        {
+            <p class="hint">@L["Login_EmergencyHint"]</p>
+        }
+        @if (_error is not null)
+        {
+            <p class="notice error">@_error</p>
+        }
+        <button type="submit" class="primary" disabled="@_busy">@L["Login_Submit"]</button>
+    </EditForm>
+</div>
+
+@code {
+    private readonly LoginForm _form = new();
+    private bool? _databaseAvailable;
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await Tokens.GetAsync() is not null)
+        {
+            Navigation.NavigateTo("", replace: true);
+            return;
+        }
+
+        _databaseAvailable = (await Api.GetHealthAsync()).Database;
+        if (_databaseAvailable == false) _form.Emergency = true;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.UserName) || string.IsNullOrEmpty(_form.Password))
+        {
+            _error = L["Login_Required"];
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var token = await Api.LoginAsync(_form.UserName, _form.Password, _form.Emergency);
+            await Tokens.SetAsync(token);
+            Navigation.NavigateTo("", replace: true);
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            _error = L["Login_Failed"];
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.ServiceUnavailable)
+        {
+            _error = L["Login_DbDown"];
+            _databaseAvailable = false;
+            _form.Emergency = true;
+        }
+        finally
+        {
+            _busy = false;
+            _form.Password = "";
+        }
+    }
+
+    private sealed class LoginForm
+    {
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
+        public bool Emergency { get; set; }
+    }
+}

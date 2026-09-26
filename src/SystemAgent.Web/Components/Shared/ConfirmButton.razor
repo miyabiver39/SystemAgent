@@ -1,0 +1,32 @@
+@* 削除等の取り消せない操作用。1回目のクリックで確認表示、2回目で実行する。 *@
+@if (_confirming)
+{
+    <button type="button" class="danger" disabled="@_busy" @onclick="ConfirmAsync">@L["Common_ConfirmDelete"]</button>
+    <button type="button" class="link" disabled="@_busy" @onclick="() => _confirming = false">@L["Common_Cancel"]</button>
+}
+else
+{
+    <button type="button" class="link danger-text" @onclick="() => _confirming = true">@Label</button>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = "";
+    [Parameter, EditorRequired] public EventCallback OnConfirmed { get; set; }
+
+    private bool _confirming;
+    private bool _busy;
+
+    private async Task ConfirmAsync()
+    {
+        _busy = true;
+        try
+        {
+            await OnConfirmed.InvokeAsync();
+        }
+        finally
+        {
+            _busy = false;
+            _confirming = false;
+        }
+    }
+}

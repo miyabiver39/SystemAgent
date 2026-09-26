@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "systemagent-web",
+      "runtimeExecutable": "dotnet",
+      "runtimeArgs": ["run", "--project", "src/SystemAgent.Web", "--launch-profile", "http"],
+      "port": 5246
+    }
+  ]
+}

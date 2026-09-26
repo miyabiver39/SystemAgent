@@ -1,8 +1,11 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Components.Authorization;
 using SystemAgent.Core.Security;
 using SystemAgent.Infrastructure;
+using SystemAgent.Web.Api;
 using SystemAgent.Web.Auth;
+using SystemAgent.Web.Client;
 using SystemAgent.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -29,15 +32,30 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
     });
 builder.Services.AddAuthorization();
 
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+
+// WebUI: 画面文字列はリソースファイルに外出しする（ADR-011）
+builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+builder.Services.AddCascadingAuthenticationState();
+builder.Services.AddScoped<TokenStore>();
+builder.Services.AddScoped<ApiAuthenticationStateProvider>();
+builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<ApiAuthenticationStateProvider>());
+builder.Services.AddSingleton<ApiBaseAddress>();
+builder.Services.AddHttpClient<ApiClient>((sp, client) =>
+    client.BaseAddress = sp.GetRequiredService<ApiBaseAddress>().Value);
+
 var app = builder.Build();
 
 // 秘密情報ストアを起動時に初期化し、初回起動時の初期パスワード案内をログに出す
 app.Services.GetRequiredService<ILocalSecretStore>();
 
+app.UseRequestLocalization("ja-JP");
+
 // Configure the HTTP request pipeline.
+app.UseExceptionHandler("/Error", createScopeForErrors: true);
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Error", createScopeForErrors: true);
     app.UseHsts();
 }
 else

@@ -1,0 +1,134 @@
+@page "/users"
+@inject ApiClient Api
+
+<PageTitle>@L["Users_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Users_Title"]</h1>
+<p class="hint">@L["Users_Description"]</p>
+
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+
+@if (_users is null)
+{
+    @if (_error is null)
+    {
+        <p class="muted">@L["Common_Loading"]</p>
+    }
+}
+else if (_users.Count == 0)
+{
+    <p class="muted">@L["Users_Empty"]</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>@L["Users_UserName"]</th>
+                <th>@L["Users_CreatedAt"]</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var user in _users)
+            {
+                <tr @key="user.UserName">
+                    <td>@user.UserName</td>
+                    <td>@user.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    <td><ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteAsync(user)" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<section class="card">
+    <h2>@L["Users_Create"]</h2>
+    <EditForm Model="_form" OnSubmit="CreateAsync" FormName="create-user" class="grid-form">
+        <label>@L["Users_UserName"]<InputText @bind-Value="_form.UserName" autocomplete="off" /></label>
+        <label>
+            @L["Users_Password"]
+            <InputText type="password" @bind-Value="_form.Password" autocomplete="new-password" />
+            <span class="hint">@L["Common_PasswordRule"]</span>
+        </label>
+        <div class="form-actions">
+            <button type="submit" class="primary" disabled="@_busy">@L["Users_Create"]</button>
+        </div>
+    </EditForm>
+</section>
+
+@code {
+    private const int MinPasswordLength = 12;
+
+    private List<UserSummary>? _users;
+    private UserForm _form = new();
+    private bool _busy;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _users = await Api.GetUsersAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.UserName) || _form.Password.Length < MinPasswordLength)
+        {
+            _error = L["Common_PasswordRule"];
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.CreateUserAsync(new CreateUserRequest(_form.UserName.Trim(), _form.Password));
+            _form = new UserForm();
+            await LoadAsync();
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            _error = L["Users_Duplicate"];
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync(UserSummary user)
+    {
+        _error = null;
+        try
+        {
+            await Api.DeleteUserAsync(user.UserName);
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private sealed class UserForm
+    {
+        public string UserName { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+}

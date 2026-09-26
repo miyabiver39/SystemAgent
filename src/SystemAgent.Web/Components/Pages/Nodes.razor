@@ -1,0 +1,153 @@
+@page "/nodes"
+@inject ApiClient Api
+
+<PageTitle>@L["Nodes_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Nodes_Title"]</h1>
+
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+
+@if (_nodes is null)
+{
+    @if (_error is null)
+    {
+        <p class="muted">@L["Common_Loading"]</p>
+    }
+}
+else if (_nodes.Count == 0)
+{
+    <p class="muted">@L["Nodes_Empty"]</p>
+}
+else
+{
+    <table>
+        <thead>
+            <tr>
+                <th>@L["Nodes_HostName"]</th>
+                <th>@L["Nodes_IpAddress"]</th>
+                <th>@L["Nodes_Os"]</th>
+                <th>@L["Nodes_Role"]</th>
+                <th>@L["Nodes_RegisteredAt"]</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var node in _nodes)
+            {
+                <tr @key="node.Id">
+                    <td>@node.HostName</td>
+                    <td>@node.IpAddress</td>
+                    <td>@node.Os.Distribution @node.Os.Version (@node.Os.Architecture)</td>
+                    <td>@L["Role_" + node.Role]</td>
+                    <td>@node.RegisteredAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
+                    <td><ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteAsync(node)" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+<section class="card">
+    <h2>@L["Nodes_Register"]</h2>
+    <EditForm Model="_form" OnSubmit="RegisterAsync" FormName="register-node" class="grid-form">
+        <label>@L["Nodes_HostName"]<InputText @bind-Value="_form.HostName" /></label>
+        <label>@L["Nodes_IpAddress"]<InputText @bind-Value="_form.IpAddress" /></label>
+        <label>@L["Nodes_Distribution"]<InputText @bind-Value="_form.Distribution" placeholder="almalinux" /></label>
+        <label>@L["Nodes_Version"]<InputText @bind-Value="_form.Version" placeholder="9.8" /></label>
+        <label>@L["Nodes_Architecture"]<InputText @bind-Value="_form.Architecture" /></label>
+        <label>
+            @L["Nodes_Role"]
+            <InputSelect @bind-Value="_form.Role">
+                @foreach (var role in Enum.GetValues<NodeRole>())
+                {
+                    <option value="@role">@L["Role_" + role]</option>
+                }
+            </InputSelect>
+        </label>
+        <div class="form-actions">
+            <button type="submit" class="primary" disabled="@_busy">@L["Nodes_Register"]</button>
+        </div>
+    </EditForm>
+</section>
+
+@code {
+    private List<NodeInfo>? _nodes;
+    private NodeForm _form = new();
+    private bool _busy;
+    private string? _error;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            _nodes = await Api.GetNodesAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task RegisterAsync()
+    {
+        if (new[] { _form.HostName, _form.IpAddress, _form.Distribution, _form.Version, _form.Architecture }
+            .Any(string.IsNullOrWhiteSpace))
+        {
+            _error = L["Common_RequiredAll"];
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.RegisterNodeAsync(new RegisterNodeRequest(
+                _form.HostName.Trim(), _form.IpAddress.Trim(),
+                new OsInfo(_form.Distribution.Trim(), _form.Version.Trim(), _form.Architecture.Trim()),
+                _form.Role));
+            _form = new NodeForm();
+            await LoadAsync();
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            _error = L["Nodes_Duplicate"];
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DeleteAsync(NodeInfo node)
+    {
+        _error = null;
+        try
+        {
+            await Api.DeleteNodeAsync(node.Id);
+            await LoadAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private sealed class NodeForm
+    {
+        public string HostName { get; set; } = "";
+        public string IpAddress { get; set; } = "";
+        public string Distribution { get; set; } = "";
+        public string Version { get; set; } = "";
+        public string Architecture { get; set; } = "x86_64";
+        public NodeRole Role { get; set; } = NodeRole.Managed;
+    }
+}

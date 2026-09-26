@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using System.Data.Common;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
@@ -15,26 +14,14 @@ public class AuthController(
     IUserService users,
     ILocalSecretStore secrets,
     IAuditLogger audit,
-    JwtTokenIssuer issuer,
-    ILogger<AuthController> logger) : ControllerBase
+    JwtTokenIssuer issuer) : ControllerBase
 {
     /// <summary>通常ログイン（DB管理ユーザー）。</summary>
+    /// <remarks>DB停止中は503（ApiExceptionHandler）。</remarks>
     [HttpPost("login")]
     public async Task<ActionResult<TokenResponse>> Login(LoginRequest request, CancellationToken cancellationToken)
     {
-        bool verified;
-        try
-        {
-            verified = await users.VerifyPasswordAsync(request.UserName, request.Password, cancellationToken);
-        }
-        catch (Exception ex) when (ex is DbException || ex.InnerException is DbException)
-        {
-            logger.LogWarning(ex, "通常ログイン時にDBへ接続できませんでした");
-            return Problem(statusCode: StatusCodes.Status503ServiceUnavailable,
-                detail: "データベースに接続できません。緊急ログインを使用してください。");
-        }
-
-        if (!verified) return Unauthorized();
+        if (!await users.VerifyPasswordAsync(request.UserName, request.Password, cancellationToken)) return Unauthorized();
 
         await audit.LogAsync(request.UserName, "auth.login", null, cancellationToken);
         return issuer.Issue(request.UserName, AuthSources.Database);

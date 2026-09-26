@@ -1,7 +1,52 @@
-﻿@page "/"
+@page "/"
+@inject ApiClient Api
 
-<PageTitle>Home</PageTitle>
+<PageTitle>@L["Nav_Home"] - @L["AppName"]</PageTitle>
 
-<h1>Hello, world!</h1>
+<h1>@L["Nav_Home"]</h1>
 
-Welcome to your new app.
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+
+<div class="tiles">
+    <div class="tile">
+        <div class="tile-label">@L["Dashboard_Database"]</div>
+        @if (_health is null)
+        {
+            <div class="tile-value muted">@L["Common_Loading"]</div>
+        }
+        else
+        {
+            <div class="tile-value @(_health.Database ? "ok" : "bad")">
+                @(_health.Database ? L["Dashboard_DbUp"] : L["Dashboard_DbDown"])
+            </div>
+        }
+    </div>
+    <div class="tile">
+        <div class="tile-label">@L["Dashboard_NodeCount"]</div>
+        <div class="tile-value">@(_nodeCount?.ToString() ?? "-")</div>
+    </div>
+</div>
+
+@code {
+    private HealthResponse? _health;
+    private int? _nodeCount;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _health = await Api.GetHealthAsync();
+        if (!_health.Database) return;
+
+        try
+        {
+            _nodeCount = (await Api.GetNodesAsync()).Count;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

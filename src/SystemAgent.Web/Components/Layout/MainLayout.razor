@@ -1,9 +1,45 @@
-﻿@inherits LayoutComponentBase
+@using System.Security.Claims
+@inherits LayoutComponentBase
+@inject TokenStore Tokens
 
-@Body
+<AuthorizeView>
+    <Authorized>
+        <div class="shell">
+            <nav class="sidebar">
+                <div class="brand">@L["AppName"]</div>
+                <NavLink href="" Match="NavLinkMatch.All">@L["Nav_Home"]</NavLink>
+                <NavLink href="nodes">@L["Nav_Nodes"]</NavLink>
+                <NavLink href="users">@L["Nav_Users"]</NavLink>
+                <NavLink href="account">@L["Nav_Account"]</NavLink>
+                <div class="sidebar-footer">
+                    <div class="whoami">@context.User.Identity?.Name</div>
+                    <div class="badge @AuthSourceOf(context.User)">@L["AuthSource_" + AuthSourceOf(context.User)]</div>
+                    <button type="button" class="link" @onclick="LogoutAsync">@L["Logout"]</button>
+                </div>
+            </nav>
+            <main class="content">
+                @if (AuthSourceOf(context.User) == AuthSources.Emergency)
+                {
+                    <p class="notice warn">@L["Banner_Emergency"]</p>
+                }
+                @Body
+            </main>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <RedirectToLogin />
+    </NotAuthorized>
+</AuthorizeView>
 
 <div id="blazor-error-ui" data-nosnippet>
-    An unhandled error has occurred.
-    <a href="." class="reload">Reload</a>
+    @L["Error_Unhandled"]
+    <a href="." class="reload">@L["Error_Reload"]</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    private static string AuthSourceOf(ClaimsPrincipal user) =>
+        user.FindFirst(AuthConstants.AuthSourceClaim)?.Value ?? AuthSources.Database;
+
+    private async Task LogoutAsync() => await Tokens.ClearAsync();
+}
