@@ -11,6 +11,7 @@ using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
 using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
+using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;
 using SystemAgent.Infrastructure.Health;
@@ -55,6 +56,7 @@ public static class DependencyInjection
             configuration["CommandTemplates:ExtraPath"] ?? DefaultExtraTemplatePath,
             sp.GetRequiredService<ILogger<CommandTemplateStore>>()));
         services.AddSingleton<ContainerRuntimeResolver>();
+        services.AddSingleton<NtpResolver>();
         services.AddScoped<INodeService, NodeService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuditLogger, DbAuditLogger>();

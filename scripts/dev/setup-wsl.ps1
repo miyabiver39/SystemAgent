@@ -1,7 +1,10 @@
 # 開発・検証用WSL2環境のセットアップ（ADR-014）。冪等に再実行可能。
 #   sa-alma9      : RHEL系検証用 (AlmaLinux 9) + MariaDB（開発用DB）
-#   sa-ubuntu2404 : Debian/Ubuntu系検証用 (Ubuntu 24.04)
+#   sa-ubuntu2404 : Debian/Ubuntu系検証用 (Ubuntu 24.04、Podman/Docker/chrony)
+#   sa-debian     : Debian系検証用 (Debian 13、systemd-timesyncd)
 # 既存の個人用ディストリビューションには触れない。
+# 注意: `wsl -- <cmd>` はディストリビューションのログインシェルを経由するため $VAR や $? が先に展開される。
+#       スクリプト内で変数を使う場合は `wsl --exec` を使うこと。
 $ErrorActionPreference = 'Stop'
 $env:WSL_UTF8 = 1
 
@@ -12,7 +15,7 @@ function Invoke-WslRoot([string]$Distro, [string]$Script) {
     if ($LASTEXITCODE -ne 0) { throw "$Distro でのスクリプト実行に失敗しました (rc=$LASTEXITCODE)" }
 }
 
-$distros = @{ 'sa-alma9' = 'AlmaLinux-9'; 'sa-ubuntu2404' = 'Ubuntu-24.04' }
+$distros = @{ 'sa-alma9' = 'AlmaLinux-9'; 'sa-ubuntu2404' = 'Ubuntu-24.04'; 'sa-debian' = 'Debian' }
 $installed = (wsl -l -q) -replace "`0", "" | Where-Object { $_ }
 
 foreach ($name in $distros.Keys) {
@@ -41,6 +44,18 @@ set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq podman docker.io chrony iproute2 libicu74
+'@
+
+Invoke-WslRoot 'sa-debian' @'
+set -e
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -qq
+apt-get install -y -qq systemd-timesyncd iproute2 procps libicu76
+# systemdはWSLをコンテナと判定しtimesyncdを起動しないため、検証環境に限り条件を外す
+mkdir -p /etc/systemd/system/systemd-timesyncd.service.d
+printf '[Unit]\nConditionVirtualization=\n' > /etc/systemd/system/systemd-timesyncd.service.d/wsl-test.conf
+systemctl daemon-reload
+systemctl restart systemd-timesyncd
 '@
 
 Write-Host "セットアップ完了。開発中は scripts/dev/start-wsl.ps1 でディストリビューションを起動維持してください。"

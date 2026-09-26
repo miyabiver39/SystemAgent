@@ -15,7 +15,12 @@
     },
     "capability": {
       "description": "対応する機能。",
-      "enum": ["container-runtime"]
+      "enum": ["container-runtime", "ntp"]
+    },
+    "settings": {
+      "description": "コマンド以外の差分（設定ファイルのパス・サービス名等）。コマンドのプレースホルダとしても参照できる。必須キーはcapabilityごとにTemplateRequirements.csで定義。",
+      "type": "object",
+      "additionalProperties": { "type": "string" }
     },
     "description": { "type": "string" },
     "executable": {
@@ -46,6 +51,10 @@
         "required": ["args"],
         "additionalProperties": false,
         "properties": {
+          "executable": {
+            "description": "このコマンドだけ別の実行ファイルを使う場合に指定（例: systemctl）。",
+            "type": "string"
+          },
           "args": {
             "description": "引数。{id} {image} {tail} {file} 等のプレースホルダは実行時に置換される。シェルは介さない。",
             "type": "array",

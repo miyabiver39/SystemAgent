@@ -118,6 +118,12 @@ pre.logs {
 .badge.state-exited, .badge.state-dead { background: var(--error-bg); color: var(--danger); }
 .badge.state-created, .badge.state-paused, .badge.state-unknown { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
 .badge.state-restarting, .badge.state-removing { background: var(--warn-bg); }
+.badge.ntp-selected { background: var(--ok-bg); color: var(--ok); }
+.badge.ntp-combined { background: var(--bg); border: 1px solid var(--ok); color: var(--ok); }
+.badge.ntp-notcombined, .badge.ntp-unknown { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+.badge.ntp-unreachable, .badge.ntp-falseticker { background: var(--error-bg); color: var(--danger); }
+.badge.ntp-toovariable { background: var(--warn-bg); }
+textarea { font: inherit; color: var(--text); padding: .45rem .6rem; border: 1px solid var(--border); border-radius: var(--radius); width: 100%; }
 
 dl { display: grid; grid-template-columns: max-content 1fr; gap: .4rem 1.25rem; margin: 0; }
 dt { color: var(--muted); }

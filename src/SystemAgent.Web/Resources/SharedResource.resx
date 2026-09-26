@@ -9,6 +9,7 @@
 
   <data name="Nav_Home" xml:space="preserve"><value>ダッシュボード</value></data>
   <data name="Nav_Containers" xml:space="preserve"><value>コンテナ</value></data>
+  <data name="Nav_Ntp" xml:space="preserve"><value>時刻同期</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>
@@ -93,6 +94,30 @@
   <data name="Images_Name" xml:space="preserve"><value>イメージ名</value></data>
   <data name="Images_Import" xml:space="preserve"><value>アーカイブから取り込み</value></data>
   <data name="Images_ImportHint" xml:space="preserve"><value>podman save / docker save で作成したtarファイルを取り込みます（エアギャップ環境向け）。数GBのファイルはCLIの `systemagent image import` の方が高速です。</value></data>
+  <data name="Ntp_Title" xml:space="preserve"><value>時刻同期（NTP）</value></data>
+  <data name="Ntp_Unavailable" xml:space="preserve"><value>このノードでは時刻同期の管理を利用できません。</value></data>
+  <data name="Ntp_Implementation" xml:space="preserve"><value>時刻同期サービス</value></data>
+  <data name="Ntp_SyncState" xml:space="preserve"><value>同期状態</value></data>
+  <data name="Ntp_Synced" xml:space="preserve"><value>同期済み</value></data>
+  <data name="Ntp_NotSynced" xml:space="preserve"><value>未同期</value></data>
+  <data name="Ntp_CurrentSource" xml:space="preserve"><value>同期先</value></data>
+  <data name="Ntp_Offset" xml:space="preserve"><value>時刻のずれ</value></data>
+  <data name="Ntp_Sources" xml:space="preserve"><value>時刻ソース</value></data>
+  <data name="Ntp_Source" xml:space="preserve"><value>ソース</value></data>
+  <data name="Ntp_SyncNow" xml:space="preserve"><value>今すぐ同期</value></data>
+  <data name="Ntp_Synchronized" xml:space="preserve"><value>時刻同期を実行しました。</value></data>
+  <data name="Ntp_Servers" xml:space="preserve"><value>NTPサーバー</value></data>
+  <data name="Ntp_ServersHint" xml:space="preserve"><value>参照するNTPサーバーを置き換えます（既存の設定はコメントアウトして残します）。反映のためサービスを再起動し、失敗した場合は設定を元に戻します。</value></data>
+  <data name="Ntp_ServersLabel" xml:space="preserve"><value>ホスト名またはIPアドレス（1行に1つ、最大10件）</value></data>
+  <data name="Ntp_Apply" xml:space="preserve"><value>適用</value></data>
+  <data name="Ntp_Applied" xml:space="preserve"><value>NTPサーバーを設定しました。</value></data>
+  <data name="NtpState_Unknown" xml:space="preserve"><value>不明</value></data>
+  <data name="NtpState_Selected" xml:space="preserve"><value>同期中</value></data>
+  <data name="NtpState_Combined" xml:space="preserve"><value>候補</value></data>
+  <data name="NtpState_NotCombined" xml:space="preserve"><value>候補外</value></data>
+  <data name="NtpState_Unreachable" xml:space="preserve"><value>到達不能</value></data>
+  <data name="NtpState_Falseticker" xml:space="preserve"><value>不正確</value></data>
+  <data name="NtpState_TooVariable" xml:space="preserve"><value>不安定</value></data>
   <data name="Dashboard_Os" xml:space="preserve"><value>OS</value></data>
   <data name="Dashboard_Runtime" xml:space="preserve"><value>コンテナランタイム</value></data>
   <data name="Dashboard_RuntimeNone" xml:space="preserve"><value>なし</value></data>

@@ -22,4 +22,16 @@ public static class Formatting
     }
 
     public static string DateTime(DateTimeOffset? value) => value?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "";
+
+    /// <summary>システム時刻のずれ（正ならシステム時刻が進んでいる）。</summary>
+    public static string ClockOffset(double? seconds) => seconds switch
+    {
+        null => "-",
+        var s when Math.Abs(s.Value) < 1 => string.Create(CultureInfo.InvariantCulture, $"{Math.Abs(s.Value) * 1000:0.0} ms {(s >= 0 ? "進み" : "遅れ")}"),
+        var s => string.Create(CultureInfo.InvariantCulture, $"{Math.Abs(s.Value):0.000} 秒 {(s >= 0 ? "進み" : "遅れ")}"),
+    };
+
+    /// <summary>NTPソースのオフセット（ミリ秒、符号付き）。</summary>
+    public static string Milliseconds(double? seconds) =>
+        seconds is { } s ? string.Create(CultureInfo.InvariantCulture, $"{s * 1000:+0.000;-0.000} ms") : "";
 }

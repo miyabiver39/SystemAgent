@@ -1,0 +1,20 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "chrony-debian",
+  "capability": "ntp",
+  "description": "chrony（Debian/Ubuntu系。設定 /etc/chrony/chrony.conf、サービス chrony）。検証: chrony 4.5 (Ubuntu 24.04)",
+  "executable": "chronyc",
+  "match": { "tool": "chronyc", "osIds": ["debian"], "minToolVersion": "2.2" },
+  "settings": {
+    "implementation": "chrony",
+    "configFile": "/etc/chrony/chrony.conf",
+    "configStyle": "chrony-managed-block",
+    "service": "chrony"
+  },
+  "commands": {
+    "status": { "args": ["-c", "tracking"], "parser": "chrony-tracking-csv" },
+    "sources": { "args": ["-c", "sources"], "parser": "chrony-sources-csv" },
+    "restartService": { "executable": "systemctl", "args": ["restart", "{service}"] },
+    "syncNow": { "args": ["makestep"] }
+  }
+}

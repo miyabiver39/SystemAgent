@@ -1,0 +1,168 @@
+@page "/ntp"
+@using SystemAgent.Core.CapabilityProviders
+@inject ApiClient Api
+
+<PageTitle>@L["Ntp_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Ntp_Title"]</h1>
+
+@if (_unavailable is not null)
+{
+    <p class="notice warn">@L["Ntp_Unavailable"] @_unavailable</p>
+    return;
+}
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
+
+@if (_ntp is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+}
+else
+{
+    var s = _ntp.Status;
+    <p class="hint">@L["Ntp_Implementation"]: @_ntp.Implementation.Name（@L["Containers_Template"]: @_ntp.Implementation.TemplateId / @_ntp.Implementation.ConfigFile）</p>
+
+    <div class="tiles">
+        <div class="tile">
+            <div class="tile-label">@L["Ntp_SyncState"]</div>
+            <div class="tile-value @(s.Synchronized ? "ok" : "bad")">@(s.Synchronized ? L["Ntp_Synced"] : L["Ntp_NotSynced"])</div>
+        </div>
+        <div class="tile">
+            <div class="tile-label">@L["Ntp_CurrentSource"]</div>
+            <div class="tile-value small">@(s.CurrentSource ?? "-")</div>
+            @if (s.Stratum is { } stratum)
+            {
+                <div class="hint">stratum @stratum</div>
+            }
+        </div>
+        <div class="tile">
+            <div class="tile-label">@L["Ntp_Offset"]</div>
+            <div class="tile-value small">@Formatting.ClockOffset(s.OffsetSeconds)</div>
+        </div>
+    </div>
+
+    @if (s.Sources.Count > 0)
+    {
+        <section>
+            <div class="section-header">
+                <h2>@L["Ntp_Sources"]</h2>
+                <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+                <button type="button" class="link" disabled="@_busy" @onclick="SyncAsync">@L["Ntp_SyncNow"]</button>
+            </div>
+            <table>
+                <thead>
+                    <tr><th>@L["Ntp_Source"]</th><th>@L["Containers_State"]</th><th>stratum</th><th>@L["Ntp_Offset"]</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var source in s.Sources)
+                    {
+                        <tr @key="source.Address">
+                            <td class="mono">@source.Address</td>
+                            <td><span class="badge ntp-@source.State.ToString().ToLowerInvariant()">@L["NtpState_" + source.State]</span></td>
+                            <td>@source.Stratum</td>
+                            <td>@Formatting.Milliseconds(source.OffsetSeconds)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </section>
+    }
+
+    <section class="card">
+        <h2>@L["Ntp_Servers"]</h2>
+        <p class="hint">@L["Ntp_ServersHint"]</p>
+        <EditForm Model="_form" OnSubmit="SaveAsync" FormName="ntp-servers">
+            <label>
+                @L["Ntp_ServersLabel"]
+                <InputTextArea @bind-Value="_form.Servers" rows="4" class="mono" />
+            </label>
+            <div class="form-actions">
+                <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Ntp_Apply"])</button>
+            </div>
+        </EditForm>
+    </section>
+}
+
+@code {
+    private NtpResponse? _ntp;
+    private string? _unavailable;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+    private readonly ServersForm _form = new();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        try
+        {
+            _ntp = await Api.GetNtpAsync();
+            _form.Servers = string.Join('\n', _ntp.Status.ConfiguredServers);
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotImplemented)
+        {
+            _unavailable = ex.Message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        var servers = _form.Servers.Split(['\n', ',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (servers.Length == 0)
+        {
+            _error = L["Common_RequiredAll"];
+            return;
+        }
+        await RunAsync(async () =>
+        {
+            await Api.SetNtpServersAsync(servers);
+            _message = L["Ntp_Applied"];
+        });
+    }
+
+    private Task SyncAsync() => RunAsync(async () =>
+    {
+        await Api.SyncNtpAsync();
+        _message = L["Ntp_Synchronized"];
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            await action();
+            var message = _message;
+            await LoadAsync();
+            _message = message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class ServersForm
+    {
+        public string Servers { get; set; } = "";
+    }
+}

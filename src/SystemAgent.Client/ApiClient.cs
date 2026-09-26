@@ -106,6 +106,15 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
         return (await response.Content.ReadFromJsonAsync<ImportImageResponse>(Json, cancellationToken))!;
     }
 
+    public Task<NtpResponse> GetNtpAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<NtpResponse>(HttpMethod.Get, "api/ntp", null, authorize: true, cancellationToken);
+
+    public Task SetNtpServersAsync(IReadOnlyList<string> servers, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Put, "api/ntp/servers", new SetNtpServersRequest(servers), authorize: true, cancellationToken);
+
+    public Task SyncNtpAsync(CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, "api/ntp/sync", null, authorize: true, cancellationToken);
+
     public Task ChangePasswordAsync(string userName, string newPassword, bool emergency, CancellationToken cancellationToken = default)
     {
         var path = emergency

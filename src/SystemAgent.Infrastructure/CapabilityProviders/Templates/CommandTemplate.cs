@@ -19,6 +19,9 @@ public sealed record CommandTemplate
 
     public required TemplateMatch Match { get; init; }
 
+    /// <summary>コマンド以外の差分（設定ファイルのパス・サービス名など）。コマンドのプレースホルダとしても参照できる。</summary>
+    public Dictionary<string, string> Settings { get; init; } = [];
+
     public required Dictionary<string, CommandDefinition> Commands { get; init; }
 
     /// <summary>読み込み元ファイル（エラー表示用）。</summary>
@@ -42,6 +45,9 @@ public sealed record TemplateMatch
 
 public sealed partial record CommandDefinition
 {
+    /// <summary>このコマンドだけ別の実行ファイルを使う場合に指定（例: systemctl）。省略時はテンプレートのexecutable。</summary>
+    public string? Executable { get; init; }
+
     /// <summary>引数。{name} はプレースホルダで、実行時に値へ置換される。</summary>
     public required string[] Args { get; init; }
 

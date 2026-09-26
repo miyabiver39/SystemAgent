@@ -31,6 +31,7 @@ public sealed class ContainerRuntimeResolver(
             ?? throw new CapabilityUnavailableException(
                 $"{tool} {toolInfo.Version}（{environment.OsId} {environment.OsVersion}）に対応するコマンドテンプレートがありません。");
 
-        return new TemplateContainerRuntimeProvider(template, new RuntimeInfo(tool, toolInfo.Version, template.Id), runner);
+        return new TemplateContainerRuntimeProvider(
+            new TemplateCommandExecutor(template, runner), new RuntimeInfo(tool, toolInfo.Version, template.Id));
     }
 }

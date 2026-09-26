@@ -106,7 +106,7 @@ public sealed class CommandTemplateTests : IDisposable
     {
         var runner = new FakeRunner();
         var provider = new TemplateContainerRuntimeProvider(
-            Store().Templates.Single(t => t.Id == "docker"), new RuntimeInfo("docker", "29.1", "docker"), runner);
+            new TemplateCommandExecutor(Store().Templates.Single(t => t.Id == "docker"), runner), new RuntimeInfo("docker", "29.1", "docker"));
 
         await provider.StopContainerAsync("web-1");
         await provider.GetContainerLogsAsync("web-1", 50);
@@ -125,7 +125,7 @@ public sealed class CommandTemplateTests : IDisposable
     {
         var runner = new FakeRunner();
         var provider = new TemplateContainerRuntimeProvider(
-            Store().Templates.Single(t => t.Id == "podman"), new RuntimeInfo("podman", "5.8", "podman"), runner);
+            new TemplateCommandExecutor(Store().Templates.Single(t => t.Id == "podman"), runner), new RuntimeInfo("podman", "5.8", "podman"));
 
         await Assert.ThrowsAsync<ArgumentException>(() => provider.StartContainerAsync(reference));
         Assert.Empty(runner.Calls);
@@ -136,7 +136,7 @@ public sealed class CommandTemplateTests : IDisposable
     {
         var runner = new FakeRunner { Result = new CommandResult(125, "", "Error: no such container") };
         var provider = new TemplateContainerRuntimeProvider(
-            Store().Templates.Single(t => t.Id == "podman"), new RuntimeInfo("podman", "5.8", "podman"), runner);
+            new TemplateCommandExecutor(Store().Templates.Single(t => t.Id == "podman"), runner), new RuntimeInfo("podman", "5.8", "podman"));
 
         var ex = await Assert.ThrowsAsync<CommandFailedException>(() => provider.StopContainerAsync("nope"));
         Assert.Equal(125, ex.ExitCode);
@@ -168,15 +168,17 @@ public sealed class CommandTemplateTests : IDisposable
         File.WriteAllText(Path.Combine(_extraDir, name), json.Replace("{COMMANDS}", commands));
     }
 
-    private sealed class FakeRunner : ICommandRunner
+    internal sealed class FakeRunner : ICommandRunner
     {
         public List<string> Calls { get; } = [];
         public CommandResult Result { get; init; } = new(0, "", "");
+        public Func<string, CommandResult?>? Respond { get; init; }
 
         public Task<CommandResult> RunAsync(string executable, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken = default)
         {
-            Calls.Add(string.Join(' ', [executable, .. arguments]));
-            return Task.FromResult(Result);
+            var call = string.Join(' ', [executable, .. arguments]);
+            Calls.Add(call);
+            return Task.FromResult(Respond?.Invoke(call) ?? Result);
         }
     }
 }

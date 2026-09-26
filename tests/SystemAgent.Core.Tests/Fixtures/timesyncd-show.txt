@@ -1,0 +1,12 @@
+LinkNTPServers=
+SystemNTPServers=
+RuntimeNTPServers=
+FallbackNTPServers=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+ServerName=0.debian.pool.ntp.org
+ServerAddress=208.88.66.8
+RootDistanceMaxUSec=5s
+PollIntervalMinUSec=32s
+PollIntervalMaxUSec=34min 8s
+PollIntervalUSec=32s
+NTPMessage={ Leap=0, Version=4, Mode=4, Stratum=2, Precision=-24, RootDelay=10.940ms, RootDispersion=24.856ms, Reference=3DCD7882, OriginateTimestamp=Sat 2026-09-26 14:19:08 JST, ReceiveTimestamp=Sat 2026-09-26 14:19:12 JST, TransmitTimestamp=Sat 2026-09-26 14:19:12 JST, DestinationTimestamp=Sat 2026-09-26 14:19:08 JST, Ignored=no, PacketCount=1, Jitter=0 }
+Frequency=-1596334

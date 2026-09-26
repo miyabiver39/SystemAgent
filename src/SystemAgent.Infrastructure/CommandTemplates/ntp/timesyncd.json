@@ -1,0 +1,20 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "timesyncd",
+  "capability": "ntp",
+  "description": "systemd-timesyncd（Debian/Ubuntuでchrony未導入の場合の既定）。show-timesyncはsystemd 239以降。検証: systemd 257 (Debian 13)",
+  "executable": "timedatectl",
+  "match": { "tool": "timesyncd", "osIds": ["*"], "minToolVersion": "239" },
+  "settings": {
+    "implementation": "timesyncd",
+    "configFile": "/etc/systemd/timesyncd.conf.d/50-systemagent.conf",
+    "configStyle": "timesyncd-dropin",
+    "service": "systemd-timesyncd"
+  },
+  "commands": {
+    "status": { "args": ["show-timesync", "--all"], "parser": "timesyncd-show" },
+    "synchronized": { "args": ["show", "-p", "NTPSynchronized", "--value"] },
+    "restartService": { "executable": "systemctl", "args": ["restart", "{service}"] },
+    "syncNow": { "executable": "systemctl", "args": ["restart", "{service}"] }
+  }
+}

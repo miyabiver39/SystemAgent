@@ -1,0 +1,20 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "chrony-rhel",
+  "capability": "ntp",
+  "description": "chrony（RHEL/CentOS/AlmaLinux/Rocky/Fedora系。設定 /etc/chrony.conf、サービス chronyd）。検証: chrony 4.8 (AlmaLinux 9)",
+  "executable": "chronyc",
+  "match": { "tool": "chronyc", "osIds": ["rhel", "centos", "fedora"], "minToolVersion": "2.2" },
+  "settings": {
+    "implementation": "chrony",
+    "configFile": "/etc/chrony.conf",
+    "configStyle": "chrony-managed-block",
+    "service": "chronyd"
+  },
+  "commands": {
+    "status": { "args": ["-c", "tracking"], "parser": "chrony-tracking-csv" },
+    "sources": { "args": ["-c", "sources"], "parser": "chrony-sources-csv" },
+    "restartService": { "executable": "systemctl", "args": ["restart", "{service}"] },
+    "syncNow": { "args": ["makestep"] }
+  }
+}

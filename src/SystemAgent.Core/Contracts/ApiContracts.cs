@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Nodes;
 
 namespace SystemAgent.Core.Contracts;
@@ -32,6 +33,10 @@ public sealed record ContainerLogsResponse(string Logs);
 public sealed record PullImageRequest([Required, MaxLength(512)] string Image);
 
 public sealed record ImportImageResponse(string Output);
+
+public sealed record NtpResponse(NtpImplementationInfo Implementation, NtpStatus Status);
+
+public sealed record SetNtpServersRequest([Required, MinLength(1)] IReadOnlyList<string> Servers);
 
 public sealed record SetupStatusResponse(bool Required);
 
