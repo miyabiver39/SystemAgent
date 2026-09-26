@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
+using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Security;
 
 namespace SystemAgent.Web.Auth;
@@ -13,15 +14,7 @@ public static class AuthConstants
     public const string NameClaim = "name";
 }
 
-/// <summary>JWTの発行元。通常認証(DB)と緊急認証(ローカル)は同じ署名鍵を使い、auth_sourceクレームで区別する。</summary>
-public static class AuthSources
-{
-    public const string Database = "db";
-    public const string Emergency = "local";
-}
-
-public sealed record TokenResponse(string AccessToken, DateTimeOffset ExpiresAt, string AuthSource);
-
+/// <summary>通常認証(DB)と緊急認証(ローカル)は同じ署名鍵を使い、auth_sourceクレーム(AuthSources)で区別する。</summary>
 public sealed class JwtTokenIssuer(ILocalSecretStore secrets, IConfiguration configuration, TimeProvider time)
 {
     private readonly JsonWebTokenHandler _handler = new();

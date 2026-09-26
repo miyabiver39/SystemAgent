@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
@@ -9,29 +10,32 @@ namespace SystemAgent.Infrastructure.Security;
 /// <summary>
 /// ホスト固有のmaster.keyでAES-GCM暗号化したsecrets.encを扱う（ADR-003）。
 /// ディレクトリ・ファイルはいずれも実行ユーザーのみ読み書き可能（Linuxでは700/600）で作成する。
+/// 緊急認証ユーザーが未作成の間はワンタイムのセットアップトークンをsetup-tokenファイルに置く（ADR-015）。
 /// </summary>
 public sealed class LocalSecretStore : ILocalSecretStore
 {
     public const string MasterKeyFileName = "master.key";
     public const string SecretsFileName = "secrets.enc";
-    public const string InitialPasswordFileName = "initial-admin-password";
-    public const string InitialEmergencyUserName = "admin";
+    public const string SetupTokenFileName = "setup-token";
 
     private const int NonceSize = 12;
     private const int TagSize = 16;
-    private const string PasswordAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
 
     private static readonly PasswordHasher<object> Hasher = new();
+    // ユーザー有無をレスポンス時間から推測されないよう、該当ユーザーが無い場合もこのハッシュで検証処理を行う
+    private static readonly string DummyHash = Hasher.HashPassword(null!, RandomNumberGenerator.GetHexString(32));
     private static readonly UnixFileMode OwnerReadWrite = UnixFileMode.UserRead | UnixFileMode.UserWrite;
 
     private readonly string _directory;
     private readonly byte[] _masterKey;
+    private readonly ILogger<LocalSecretStore> _logger;
     private readonly Lock _lock = new();
     private SecretData _data;
 
     public LocalSecretStore(string directory, ILogger<LocalSecretStore> logger)
     {
         _directory = directory;
+        _logger = logger;
         if (OperatingSystem.IsWindows())
             Directory.CreateDirectory(directory);
         else
@@ -45,15 +49,35 @@ public sealed class LocalSecretStore : ILocalSecretStore
         }
         else
         {
-            var initialPassword = RandomNumberGenerator.GetString(PasswordAlphabet, 20);
-            _data = new SecretData(
-                Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                [new EmergencyUser(InitialEmergencyUserName, Hasher.HashPassword(null!, initialPassword))]);
+            _data = new SecretData(Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)), []);
             Save();
-            WriteFile(PathOf(InitialPasswordFileName), System.Text.Encoding.UTF8.GetBytes(initialPassword + "\n"));
-            logger.LogWarning(
-                "ローカル秘密情報を初期化しました。緊急ユーザー '{User}' の初期パスワードは {Path} を参照し、ログイン後に変更してください。",
-                InitialEmergencyUserName, PathOf(InitialPasswordFileName));
+        }
+
+        if (IsSetupRequired) EnsureSetupToken();
+    }
+
+    public bool IsSetupRequired => _data.EmergencyUsers.Count == 0;
+
+    public string SetupTokenPath => PathOf(SetupTokenFileName);
+
+    public SetupResult CompleteSetup(string setupToken, string userName, string password)
+    {
+        lock (_lock)
+        {
+            if (!IsSetupRequired) return SetupResult.AlreadyCompleted;
+
+            var expected = File.Exists(SetupTokenPath) ? File.ReadAllText(SetupTokenPath).Trim() : "";
+            if (expected.Length == 0 || !CryptographicOperations.FixedTimeEquals(
+                    Encoding.UTF8.GetBytes(expected), Encoding.UTF8.GetBytes(setupToken.Trim())))
+            {
+                return SetupResult.InvalidToken;
+            }
+
+            _data = _data with { EmergencyUsers = [new EmergencyUser(userName, Hasher.HashPassword(null!, password))] };
+            Save();
+            File.Delete(SetupTokenPath);
+            _logger.LogInformation("初期セットアップが完了しました。緊急認証ユーザー '{User}' を作成しました。", userName);
+            return SetupResult.Completed;
         }
     }
 
@@ -62,13 +86,8 @@ public sealed class LocalSecretStore : ILocalSecretStore
     public bool VerifyEmergencyUser(string userName, string password)
     {
         var user = _data.EmergencyUsers.FirstOrDefault(u => u.UserName == userName);
-        if (user is null)
-        {
-            // ユーザー有無をレスポンス時間から推測されないよう、存在しない場合もハッシュ計算を行う
-            Hasher.VerifyHashedPassword(null!, _data.EmergencyUsers[0].PasswordHash, password);
-            return false;
-        }
-        return Hasher.VerifyHashedPassword(null!, user.PasswordHash, password) != PasswordVerificationResult.Failed;
+        var result = Hasher.VerifyHashedPassword(null!, user?.PasswordHash ?? DummyHash, password);
+        return user is not null && result != PasswordVerificationResult.Failed;
     }
 
     public bool ChangeEmergencyPassword(string userName, string newPassword)
@@ -82,12 +101,22 @@ public sealed class LocalSecretStore : ILocalSecretStore
             users[index] = users[index] with { PasswordHash = Hasher.HashPassword(null!, newPassword) };
             _data = _data with { EmergencyUsers = users };
             Save();
-            File.Delete(PathOf(InitialPasswordFileName));
             return true;
         }
     }
 
     private string PathOf(string fileName) => Path.Combine(_directory, fileName);
+
+    private void EnsureSetupToken()
+    {
+        if (!File.Exists(SetupTokenPath))
+        {
+            WriteFile(SetupTokenPath, Encoding.UTF8.GetBytes(RandomNumberGenerator.GetHexString(32, lowercase: true) + "\n"));
+        }
+        _logger.LogWarning(
+            "初期セットアップが未実施です。`sudo systemagent setup` を実行するか、WebUIの初期セットアップ画面で {Path} に記載のセットアップトークンを入力してください。",
+            SetupTokenPath);
+    }
 
     private byte[] LoadOrCreateMasterKey()
     {

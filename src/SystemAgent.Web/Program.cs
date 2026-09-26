@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Components.Authorization;
+using SystemAgent.Client;
 using SystemAgent.Core.Security;
 using SystemAgent.Infrastructure;
 using SystemAgent.Web.Api;
@@ -39,6 +40,7 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<TokenStore>();
+builder.Services.AddScoped<ITokenProvider>(sp => sp.GetRequiredService<TokenStore>());
 builder.Services.AddScoped<ApiAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<ApiAuthenticationStateProvider>());
 builder.Services.AddSingleton<ApiBaseAddress>();

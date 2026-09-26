@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/SystemAgent.Cli/SystemAgent.Cli.csproj" />
+    <Project Path="src/SystemAgent.Client/SystemAgent.Client.csproj" />
     <Project Path="src/SystemAgent.Core/SystemAgent.Core.csproj" />
     <Project Path="src/SystemAgent.Infrastructure/SystemAgent.Infrastructure.csproj" />
     <Project Path="src/SystemAgent.Web/SystemAgent.Web.csproj" />

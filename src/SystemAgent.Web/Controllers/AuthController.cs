@@ -1,7 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
+using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Security;
 using SystemAgent.Core.Users;
 using SystemAgent.Web.Auth;
@@ -53,9 +53,3 @@ public class AuthController(
         return NoContent();
     }
 }
-
-public sealed record LoginRequest([Required] string UserName, [Required] string Password);
-
-public sealed record ChangePasswordRequest([Required, MinLength(12)] string NewPassword);
-
-public sealed record MeResponse(string UserName, string AuthSource);

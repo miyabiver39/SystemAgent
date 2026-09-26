@@ -1,7 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
+using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Nodes;
 
 namespace SystemAgent.Web.Controllers;
@@ -38,9 +38,3 @@ public class NodesController(INodeService nodes, IAuditLogger audit) : Controlle
         return NoContent();
     }
 }
-
-public sealed record RegisterNodeRequest(
-    [Required, MaxLength(253)] string HostName,
-    [Required, MaxLength(45)] string IpAddress,
-    [Required] OsInfo Os,
-    NodeRole Role = NodeRole.Managed);

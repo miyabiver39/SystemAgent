@@ -1,0 +1,99 @@
+@page "/setup"
+@layout LoginLayout
+@inject ApiClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>@L["Setup_Title"] - @L["AppName"]</PageTitle>
+
+<div class="card login-card">
+    <h1>@L["Setup_Title"]</h1>
+    <p class="hint">@L["Setup_Description"]</p>
+
+    <EditForm Model="_form" OnSubmit="SubmitAsync" FormName="setup">
+        <label>
+            @L["Setup_Token"]
+            <InputText @bind-Value="_form.SetupToken" autocomplete="off" />
+            <span class="hint">@L["Setup_TokenHint"]</span>
+        </label>
+        <label>
+            @L["Setup_AdminUserName"]
+            <InputText @bind-Value="_form.UserName" autocomplete="username" />
+        </label>
+        <label>
+            @L["Login_Password"]
+            <InputText type="password" @bind-Value="_form.Password" autocomplete="new-password" />
+            <span class="hint">@L["Common_PasswordRule"]</span>
+        </label>
+        <label>
+            @L["Account_ConfirmPassword"]
+            <InputText type="password" @bind-Value="_form.Confirm" autocomplete="new-password" />
+        </label>
+        @if (_error is not null)
+        {
+            <p class="notice error">@_error</p>
+        }
+        <button type="submit" class="primary" disabled="@_busy">@L["Setup_Submit"]</button>
+    </EditForm>
+</div>
+
+@code {
+    private readonly SetupForm _form = new();
+    private bool _busy;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!(await Api.GetSetupStatusAsync()).Required) Navigation.NavigateTo("login", replace: true);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.SetupToken) || string.IsNullOrWhiteSpace(_form.UserName))
+        {
+            _error = L["Common_RequiredAll"];
+            return;
+        }
+        if (_form.Password.Length < PasswordPolicy.MinLength)
+        {
+            _error = L["Common_PasswordRule"];
+            return;
+        }
+        if (_form.Password != _form.Confirm)
+        {
+            _error = L["Account_Mismatch"];
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            await Api.CompleteSetupAsync(new SetupRequest(_form.SetupToken.Trim(), _form.UserName.Trim(), _form.Password));
+            Navigation.NavigateTo("login?setup=done", replace: true);
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Forbidden)
+        {
+            _error = L["Setup_InvalidToken"];
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
+        {
+            Navigation.NavigateTo("login", replace: true);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private sealed class SetupForm
+    {
+        public string SetupToken { get; set; } = "";
+        public string UserName { get; set; } = "admin";
+        public string Password { get; set; } = "";
+        public string Confirm { get; set; } = "";
+    }
+}

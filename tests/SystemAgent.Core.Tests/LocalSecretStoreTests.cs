@@ -1,58 +1,102 @@
 using Microsoft.Extensions.Logging.Abstractions;
+using SystemAgent.Core.Security;
 using SystemAgent.Infrastructure.Security;
 
 namespace SystemAgent.Core.Tests;
 
 public sealed class LocalSecretStoreTests : IDisposable
 {
+    private const string Password = "initial-password-1";
+
     private readonly string _dir = Path.Combine(Path.GetTempPath(), "sa-secret-tests-" + Guid.NewGuid());
 
     public void Dispose() => Directory.Delete(_dir, recursive: true);
 
     private LocalSecretStore Open() => new(_dir, NullLogger<LocalSecretStore>.Instance);
 
-    private string InitialPassword() =>
-        File.ReadAllText(Path.Combine(_dir, LocalSecretStore.InitialPasswordFileName)).Trim();
+    private string SetupToken() => File.ReadAllText(Path.Combine(_dir, LocalSecretStore.SetupTokenFileName)).Trim();
+
+    private LocalSecretStore OpenAndSetUp()
+    {
+        var store = Open();
+        Assert.Equal(SetupResult.Completed, store.CompleteSetup(SetupToken(), "admin", Password));
+        return store;
+    }
 
     [Fact]
-    public void FirstOpen_CreatesAdminWithInitialPasswordFile()
+    public void FirstOpen_RequiresSetupAndIssuesToken()
     {
         var store = Open();
 
-        Assert.True(store.VerifyEmergencyUser(LocalSecretStore.InitialEmergencyUserName, InitialPassword()));
-        Assert.False(store.VerifyEmergencyUser(LocalSecretStore.InitialEmergencyUserName, "wrong"));
-        Assert.False(store.VerifyEmergencyUser("nobody", InitialPassword()));
+        Assert.True(store.IsSetupRequired);
+        Assert.Equal(32, SetupToken().Length);
+        Assert.False(store.VerifyEmergencyUser("admin", ""));
         Assert.Equal(64, store.GetJwtSigningKey().Length);
+    }
+
+    [Fact]
+    public void Setup_WithWrongToken_IsRejected()
+    {
+        var store = Open();
+
+        Assert.Equal(SetupResult.InvalidToken, store.CompleteSetup("wrong", "admin", Password));
+        Assert.Equal(SetupResult.InvalidToken, store.CompleteSetup("", "admin", Password));
+        Assert.True(store.IsSetupRequired);
+    }
+
+    [Fact]
+    public void Setup_CreatesUser_ConsumesToken_AndCannotRunTwice()
+    {
+        var store = Open();
+        var token = SetupToken();
+
+        Assert.Equal(SetupResult.Completed, store.CompleteSetup(token, "admin", Password));
+
+        Assert.False(store.IsSetupRequired);
+        Assert.False(File.Exists(Path.Combine(_dir, LocalSecretStore.SetupTokenFileName)));
+        Assert.True(store.VerifyEmergencyUser("admin", Password));
+        Assert.False(store.VerifyEmergencyUser("admin", "wrong"));
+        Assert.False(store.VerifyEmergencyUser("nobody", Password));
+        Assert.Equal(SetupResult.AlreadyCompleted, store.CompleteSetup(token, "other", Password));
+    }
+
+    [Fact]
+    public void Reopen_BeforeSetup_KeepsSameToken()
+    {
+        Open();
+        var token = SetupToken();
+
+        Assert.True(Open().IsSetupRequired);
+        Assert.Equal(token, SetupToken());
     }
 
     [Fact]
     public void SecretsFile_DoesNotContainPlaintext()
     {
-        Open();
+        OpenAndSetUp();
 
         var blob = File.ReadAllText(Path.Combine(_dir, LocalSecretStore.SecretsFileName));
-        Assert.DoesNotContain(LocalSecretStore.InitialEmergencyUserName, blob);
+        Assert.DoesNotContain("admin", blob);
     }
 
     [Fact]
     public void Reopen_KeepsSigningKeyAndChangedPassword()
     {
-        var first = Open();
-        var initial = InitialPassword();
-        Assert.True(first.ChangeEmergencyPassword(LocalSecretStore.InitialEmergencyUserName, "changed-password-1"));
-        Assert.False(File.Exists(Path.Combine(_dir, LocalSecretStore.InitialPasswordFileName)));
+        var first = OpenAndSetUp();
+        Assert.True(first.ChangeEmergencyPassword("admin", "changed-password-1"));
 
         var second = Open();
 
+        Assert.False(second.IsSetupRequired);
         Assert.Equal(first.GetJwtSigningKey(), second.GetJwtSigningKey());
-        Assert.True(second.VerifyEmergencyUser(LocalSecretStore.InitialEmergencyUserName, "changed-password-1"));
-        Assert.False(second.VerifyEmergencyUser(LocalSecretStore.InitialEmergencyUserName, initial));
+        Assert.True(second.VerifyEmergencyUser("admin", "changed-password-1"));
+        Assert.False(second.VerifyEmergencyUser("admin", Password));
     }
 
     [Fact]
     public void ChangePassword_UnknownUser_ReturnsFalse()
     {
-        Assert.False(Open().ChangeEmergencyPassword("nobody", "whatever-password"));
+        Assert.False(OpenAndSetUp().ChangeEmergencyPassword("nobody", "whatever-password"));
     }
 
     [Fact]

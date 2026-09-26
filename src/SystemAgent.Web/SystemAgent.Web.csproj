@@ -3,6 +3,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SystemAgent.Core\SystemAgent.Core.csproj" />
     <ProjectReference Include="..\SystemAgent.Infrastructure\SystemAgent.Infrastructure.csproj" />
+    <ProjectReference Include="..\SystemAgent.Client\SystemAgent.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

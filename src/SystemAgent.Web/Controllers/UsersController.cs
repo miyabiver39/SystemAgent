@@ -1,7 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
+using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Users;
 
 namespace SystemAgent.Web.Controllers;
@@ -42,7 +42,3 @@ public class UsersController(IUserService users, IAuditLogger audit) : Controlle
         return NoContent();
     }
 }
-
-public sealed record CreateUserRequest(
-    [Required, RegularExpression("^[a-zA-Z0-9._-]{1,64}$")] string UserName,
-    [Required, MinLength(12)] string Password);

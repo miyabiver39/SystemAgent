@@ -1,13 +1,14 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
-using SystemAgent.Web.Auth;
+using SystemAgent.Client;
+using SystemAgent.Core.Contracts;
 
 namespace SystemAgent.Web.Client;
 
 /// <summary>
 /// WebUI(回線)ごとのアクセストークン。ブラウザのsessionStorageに暗号化して保持し、リロード後も維持する。
 /// </summary>
-public sealed class TokenStore(ProtectedSessionStorage storage, TimeProvider time)
+public sealed class TokenStore(ProtectedSessionStorage storage, TimeProvider time) : ITokenProvider
 {
     private const string StorageKey = "systemagent.token";
 
@@ -55,4 +56,9 @@ public sealed class TokenStore(ProtectedSessionStorage storage, TimeProvider tim
         await storage.DeleteAsync(StorageKey);
         Changed?.Invoke();
     }
+
+    async ValueTask<string?> ITokenProvider.GetAccessTokenAsync() => (await GetAsync())?.AccessToken;
+
+    // クリアするとレイアウトがログイン画面へ遷移させる
+    ValueTask ITokenProvider.OnUnauthorizedAsync() => ClearAsync();
 }

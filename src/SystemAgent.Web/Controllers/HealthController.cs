@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Health;
 
 namespace SystemAgent.Web.Controllers;
@@ -12,5 +13,3 @@ public class HealthController(IDatabaseStatus database, TimeProvider time) : Con
     public async Task<HealthResponse> Get(CancellationToken cancellationToken) =>
         new("ok", await database.CanConnectAsync(cancellationToken), time.GetUtcNow());
 }
-
-public sealed record HealthResponse(string Status, bool Database, DateTimeOffset TimestampUtc);

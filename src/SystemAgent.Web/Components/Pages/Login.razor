@@ -9,6 +9,10 @@
 <div class="card login-card">
     <h1>@L["AppName"]</h1>
 
+    @if (SetupState == "done")
+    {
+        <p class="notice ok">@L["Setup_Done"]</p>
+    }
     @if (_databaseAvailable == false)
     {
         <p class="notice warn">@L["Login_DbDown"]</p>
@@ -45,6 +49,9 @@
     private bool _busy;
     private string? _error;
 
+    [SupplyParameterFromQuery(Name = "setup")]
+    private string? SetupState { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         if (await Tokens.GetAsync() is not null)
@@ -52,7 +59,13 @@
             Navigation.NavigateTo("", replace: true);
             return;
         }
+        if ((await Api.GetSetupStatusAsync()).Required)
+        {
+            Navigation.NavigateTo("setup", replace: true);
+            return;
+        }
 
+        if (SetupState == "done") _form.Emergency = true;
         _databaseAvailable = (await Api.GetHealthAsync()).Database;
         if (_databaseAvailable == false) _form.Emergency = true;
     }

@@ -15,7 +15,7 @@
 
   <data name="AuthSource_db" xml:space="preserve"><value>通常認証</value></data>
   <data name="AuthSource_local" xml:space="preserve"><value>緊急認証</value></data>
-  <data name="Banner_Emergency" xml:space="preserve"><value>緊急認証（ローカル認証）でログイン中です。DB復旧後は通常ユーザーでログインし直してください。</value></data>
+  <data name="Banner_Emergency" xml:space="preserve"><value>緊急認証（ローカル認証）でログイン中です。通常の運用では「ユーザー」から作成したDBユーザーでログインしてください。</value></data>
 
   <data name="Login_Title" xml:space="preserve"><value>ログイン</value></data>
   <data name="Login_UserName" xml:space="preserve"><value>ユーザー名</value></data>
@@ -26,6 +26,15 @@
   <data name="Login_DbDown" xml:space="preserve"><value>データベースに接続できません。緊急ログインのみ利用できます。</value></data>
   <data name="Login_Failed" xml:space="preserve"><value>ユーザー名またはパスワードが正しくありません。</value></data>
   <data name="Login_Required" xml:space="preserve"><value>ユーザー名とパスワードを入力してください。</value></data>
+
+  <data name="Setup_Title" xml:space="preserve"><value>初期セットアップ</value></data>
+  <data name="Setup_Description" xml:space="preserve"><value>緊急認証（ローカル認証）用の管理者を作成します。この管理者はDBに依存せずログインでき、DB停止中の復旧作業に使用します。</value></data>
+  <data name="Setup_Token" xml:space="preserve"><value>セットアップトークン</value></data>
+  <data name="Setup_TokenHint" xml:space="preserve"><value>サーバー上の /var/lib/systemagent/secrets/setup-token に記載されています（root権限で参照）。</value></data>
+  <data name="Setup_AdminUserName" xml:space="preserve"><value>管理者ユーザー名</value></data>
+  <data name="Setup_Submit" xml:space="preserve"><value>セットアップを完了</value></data>
+  <data name="Setup_InvalidToken" xml:space="preserve"><value>セットアップトークンが正しくありません。</value></data>
+  <data name="Setup_Done" xml:space="preserve"><value>初期セットアップが完了しました。作成した管理者で緊急ログインしてください。</value></data>
 
   <data name="Dashboard_Database" xml:space="preserve"><value>データベース</value></data>
   <data name="Dashboard_DbUp" xml:space="preserve"><value>接続中</value></data>
