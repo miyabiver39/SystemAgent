@@ -1,0 +1,21 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "podman",
+  "capability": "container-runtime",
+  "description": "Podman 3.0以降（RHEL 8/9、AlmaLinux/Rocky 8/9、Ubuntu 22.04以降 等）。検証: Podman 5.8 (AlmaLinux 9)、4.9 (Ubuntu 24.04)",
+  "executable": "podman",
+  "match": { "tool": "podman", "osIds": ["*"], "minToolVersion": "3.0" },
+  "commands": {
+    "listContainers": { "args": ["ps", "-a", "--pod", "--format", "json"], "parser": "podman-containers-json" },
+    "startContainer": { "args": ["start", "{id}"] },
+    "stopContainer": { "args": ["stop", "{id}"], "timeoutSeconds": 120 },
+    "restartContainer": { "args": ["restart", "{id}"], "timeoutSeconds": 120 },
+    "removeContainer": { "args": ["rm", "{id}"] },
+    "containerLogs": { "args": ["logs", "--tail", "{tail}", "{id}"] },
+    "listImages": { "args": ["images", "--format", "json"], "parser": "podman-images-json" },
+    "pullImage": { "args": ["pull", "{image}"], "timeoutSeconds": 1800 },
+    "removeImage": { "args": ["rmi", "{id}"] },
+    "loadImage": { "args": ["load", "-i", "{file}"], "timeoutSeconds": 1800 },
+    "listPods": { "args": ["pod", "ps", "--format", "json"], "parser": "podman-pods-json" }
+  }
+}

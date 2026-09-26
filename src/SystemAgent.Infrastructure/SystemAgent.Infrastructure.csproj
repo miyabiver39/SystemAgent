@@ -13,6 +13,11 @@
     <PackageReference Include="Pomelo.EntityFrameworkCore.MySql" Version="9.0.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- コマンドテンプレートは出力先の CommandTemplates/ に配置し、実行時に読み込む（ADR-005） -->
+    <None Include="CommandTemplates\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

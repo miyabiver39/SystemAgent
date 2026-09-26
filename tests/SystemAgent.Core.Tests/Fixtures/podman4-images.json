@@ -1,0 +1,25 @@
+[
+    {
+        "Id": "320994c3b997e2ec6433f717f153e108023c5bec8fefa8d76b83451d16d05ea8",
+        "ParentId": "",
+        "RepoTags": null,
+        "RepoDigests": [
+            "docker.io/library/alpine@sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+            "docker.io/library/alpine@sha256:d56c381f961d307a21b3ca004cf1e3910f106644aefb1f43e654c8a56c4fd395"
+        ],
+        "Size": 8715873,
+        "SharedSize": 0,
+        "VirtualSize": 8715873,
+        "Labels": null,
+        "Containers": 0,
+        "Names": [
+            "docker.io/library/alpine:latest"
+        ],
+        "Digest": "sha256:294b683cb724975bec92580e1e685676bd4b50bda910ddb8c51d4cabeaec77e6",
+        "History": [
+            "docker.io/library/alpine:latest"
+        ],
+        "Created": 1789677440,
+        "CreatedAt": "2026-09-17T20:37:20Z"
+    }
+]

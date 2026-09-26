@@ -25,6 +25,14 @@ public sealed record RegisterNodeRequest(
     [Required] OsInfo Os,
     NodeRole Role = NodeRole.Managed);
 
+public sealed record ContainerRuntimeResponse(string Name, string Version, string TemplateId, bool SupportsPods);
+
+public sealed record ContainerLogsResponse(string Logs);
+
+public sealed record PullImageRequest([Required, MaxLength(512)] string Image);
+
+public sealed record ImportImageResponse(string Output);
+
 public sealed record SetupStatusResponse(bool Required);
 
 public sealed record SetupRequest(

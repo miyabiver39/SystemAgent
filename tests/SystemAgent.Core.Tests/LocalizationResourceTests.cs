@@ -15,6 +15,7 @@ public partial class LocalizationResourceTests
     [
         "AuthSource_db", "AuthSource_local",
         "Role_Master", "Role_Replica", "Role_Managed",
+        .. Enum.GetNames<CapabilityProviders.ContainerState>().Select(s => "State_" + s),
     ];
 
     [Fact]

@@ -1,0 +1,39 @@
+[
+  {
+    "AutoRemove": false,
+    "Command": [
+      "sleep",
+      "3600"
+    ],
+    "CreatedAt": "1 second ago",
+    "CIDFile": "",
+    "Exited": false,
+    "ExitedAt": -62135596800,
+    "ExitCode": 0,
+    "Id": "198ce66c0e7be3be53a29eb1b3fd1a8cd5d879e6d36fd49e8ea139d5382293c8",
+    "Image": "docker.io/library/alpine:latest",
+    "ImageID": "320994c3b997e2ec6433f717f153e108023c5bec8fefa8d76b83451d16d05ea8",
+    "IsInfra": false,
+    "Labels": null,
+    "Mounts": [],
+    "Names": [
+      "sa-fixture-p4"
+    ],
+    "Namespaces": {
+      
+    },
+    "Networks": [
+      "podman"
+    ],
+    "Pid": 1456,
+    "Pod": "",
+    "PodName": "",
+    "Ports": null,
+    "Restarts": 0,
+    "Size": null,
+    "StartedAt": 1790398138,
+    "State": "running",
+    "Status": "Up 1 second",
+    "Created": 1790398137
+  }
+]

@@ -9,8 +9,10 @@ namespace SystemAgent.Cli;
 /// </summary>
 public sealed class FileTokenStore : ITokenProvider
 {
+    // DoNotVerify: 既定では ~/.config が未作成だと空文字が返り、カレントディレクトリに保存されてしまう
     private static readonly string FilePath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "systemagent", "session.json");
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData, Environment.SpecialFolderOption.DoNotVerify),
+        "systemagent", "session.json");
 
     public Session? Load()
     {
@@ -21,7 +23,11 @@ public sealed class FileTokenStore : ITokenProvider
 
     public void Save(Session session)
     {
-        Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
+        var directory = Path.GetDirectoryName(FilePath)!;
+        if (OperatingSystem.IsWindows())
+            Directory.CreateDirectory(directory);
+        else
+            Directory.CreateDirectory(directory, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         var options = new FileStreamOptions { Mode = FileMode.Create, Access = FileAccess.Write };
         if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
         using var stream = new FileStream(FilePath, options);

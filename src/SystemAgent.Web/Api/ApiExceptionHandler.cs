@@ -1,12 +1,18 @@
 using System.Data.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using SystemAgent.Core.CapabilityProviders;
 
 namespace SystemAgent.Web.Api;
 
 /// <summary>
-/// /api配下の未処理例外をProblemDetailsで返す。DB接続障害は503とし、クライアントを緊急ログインへ誘導できるようにする。
-/// 画面(Blazor)側の例外はfalseを返して既定のエラーページに任せる。
+/// /api配下の未処理例外をProblemDetailsで返す。画面(Blazor)側の例外はfalseを返して既定のエラーページに任せる。
+/// <list type="bullet">
+/// <item>DB接続障害: 503（クライアントは緊急ログインへ誘導する）</item>
+/// <item>OSコマンドの失敗: 422（コマンドのエラー出力をそのまま返す）</item>
+/// <item>この環境で提供できない機能: 501</item>
+/// <item>引数の不正: 400 / コマンドのタイムアウト: 504</item>
+/// </list>
 /// </summary>
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, ILogger<ApiExceptionHandler> logger) : IExceptionHandler
 {
@@ -16,27 +22,28 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
         var originalPath = new PathString(context.Features.Get<IExceptionHandlerFeature>()?.Path ?? context.Request.Path);
         if (!originalPath.StartsWithSegments("/api")) return false;
 
-        var databaseUnavailable = exception is DbException || exception.InnerException is DbException;
-        if (databaseUnavailable)
-            logger.LogWarning(exception, "API処理中にDBへ接続できませんでした: {Path}", originalPath);
-        else
+        var (status, detail) = exception switch
+        {
+            _ when exception is DbException || exception.InnerException is DbException =>
+                (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),
+            CommandFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
+            CapabilityUnavailableException ex => (StatusCodes.Status501NotImplemented, ex.Message),
+            ArgumentException ex => (StatusCodes.Status400BadRequest, ex.Message),
+            TimeoutException ex => (StatusCodes.Status504GatewayTimeout, ex.Message),
+            _ => (StatusCodes.Status500InternalServerError, "サーバー内部でエラーが発生しました。"),
+        };
+
+        if (status == StatusCodes.Status500InternalServerError)
             logger.LogError(exception, "API処理中に未処理の例外が発生しました: {Path}", originalPath);
+        else
+            logger.LogWarning(exception, "API処理が失敗しました ({Status}): {Path}", status, originalPath);
 
-        context.Response.StatusCode = databaseUnavailable
-            ? StatusCodes.Status503ServiceUnavailable
-            : StatusCodes.Status500InternalServerError;
-
+        context.Response.StatusCode = status;
         return await problemDetails.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = context,
             Exception = exception,
-            ProblemDetails = new ProblemDetails
-            {
-                Status = context.Response.StatusCode,
-                Detail = databaseUnavailable
-                    ? "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"
-                    : "サーバー内部でエラーが発生しました。",
-            },
+            ProblemDetails = new ProblemDetails { Status = status, Detail = detail },
         });
     }
 }

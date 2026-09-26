@@ -1,0 +1,110 @@
+[
+  {
+    "AutoRemove": false,
+    "Command": null,
+    "CreatedAt": "29 seconds ago",
+    "CIDFile": "",
+    "Exited": false,
+    "ExitedAt": -62135596800,
+    "ExitCode": 0,
+    "ExposedPorts": null,
+    "Id": "21ee0daeaf88ec98d8e24f2ed5967ba829084a9841fcc3d7ecd1c6637feaa347",
+    "Image": "",
+    "ImageID": "",
+    "IsInfra": true,
+    "Labels": null,
+    "Mounts": [],
+    "Names": [
+      "b447d57af21a-infra"
+    ],
+    "Namespaces": {
+      
+    },
+    "Networks": [
+      "podman"
+    ],
+    "Pid": 827,
+    "Pod": "b447d57af21a674a1bba61fde9ad225357ceb503b11514aa9a3c2533faf6703b",
+    "PodName": "sa-fixture-pod",
+    "Ports": null,
+    "Restarts": 0,
+    "Size": null,
+    "StartedAt": 1790398108,
+    "State": "running",
+    "Status": "Up 29 seconds",
+    "Created": 1790398107
+  },
+  {
+    "AutoRemove": false,
+    "Command": [
+      "sleep",
+      "3600"
+    ],
+    "CreatedAt": "28 seconds ago",
+    "CIDFile": "",
+    "Exited": false,
+    "ExitedAt": -62135596800,
+    "ExitCode": 0,
+    "ExposedPorts": null,
+    "Id": "9d6f285ee8c286d398074a27817de049bdbd52bbc2118ecab7d6813ab452c33e",
+    "Image": "docker.io/library/alpine:latest",
+    "ImageID": "320994c3b997e2ec6433f717f153e108023c5bec8fefa8d76b83451d16d05ea8",
+    "IsInfra": false,
+    "Labels": null,
+    "Mounts": [],
+    "Names": [
+      "sa-fixture-web"
+    ],
+    "Namespaces": {
+      
+    },
+    "Networks": [],
+    "Pid": 832,
+    "Pod": "b447d57af21a674a1bba61fde9ad225357ceb503b11514aa9a3c2533faf6703b",
+    "PodName": "sa-fixture-pod",
+    "Ports": null,
+    "Restarts": 0,
+    "Size": null,
+    "StartedAt": 1790398109,
+    "State": "running",
+    "Status": "Up 28 seconds",
+    "Created": 1790398108
+  },
+  {
+    "AutoRemove": false,
+    "Command": [
+      "true"
+    ],
+    "CreatedAt": "27 seconds ago",
+    "CIDFile": "",
+    "Exited": false,
+    "ExitedAt": -62135596800,
+    "ExitCode": 0,
+    "ExposedPorts": null,
+    "Id": "c0464c565fb8000c908833c96a3114f21668d59aacfd6c9551f02236d73b3f79",
+    "Image": "docker.io/library/alpine:latest",
+    "ImageID": "320994c3b997e2ec6433f717f153e108023c5bec8fefa8d76b83451d16d05ea8",
+    "IsInfra": false,
+    "Labels": null,
+    "Mounts": [],
+    "Names": [
+      "sa-fixture-stopped"
+    ],
+    "Namespaces": {
+      
+    },
+    "Networks": [
+      "podman"
+    ],
+    "Pid": 0,
+    "Pod": "",
+    "PodName": "",
+    "Ports": null,
+    "Restarts": 0,
+    "Size": null,
+    "StartedAt": -62135596800,
+    "State": "created",
+    "Status": "Created",
+    "Created": 1790398110
+  }
+]

@@ -1,0 +1,31 @@
+[
+  {
+    "Cgroup": "machine.slice",
+    "Containers": [
+      {
+        "Id": "21ee0daeaf88ec98d8e24f2ed5967ba829084a9841fcc3d7ecd1c6637feaa347",
+        "Names": "b447d57af21a-infra",
+        "Status": "running",
+        "RestartCount": 0
+      },
+      {
+        "Id": "9d6f285ee8c286d398074a27817de049bdbd52bbc2118ecab7d6813ab452c33e",
+        "Names": "sa-fixture-web",
+        "Status": "running",
+        "RestartCount": 0
+      }
+    ],
+    "Created": "2026-09-26T13:48:27.689583166+09:00",
+    "Id": "b447d57af21a674a1bba61fde9ad225357ceb503b11514aa9a3c2533faf6703b",
+    "InfraId": "21ee0daeaf88ec98d8e24f2ed5967ba829084a9841fcc3d7ecd1c6637feaa347",
+    "Name": "sa-fixture-pod",
+    "Namespace": "",
+    "Networks": [
+      "podman"
+    ],
+    "Status": "Running",
+    "Labels": {
+      
+    }
+  }
+]

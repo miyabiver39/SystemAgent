@@ -1,0 +1,20 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "docker",
+  "capability": "container-runtime",
+  "description": "Docker 1.13以降（State列が無い20.10未満はStatusから状態を推定）。Podは非対応。検証: Docker 29.1 (Ubuntu 24.04)",
+  "executable": "docker",
+  "match": { "tool": "docker", "osIds": ["*"], "minToolVersion": "1.13" },
+  "commands": {
+    "listContainers": { "args": ["ps", "-a", "--no-trunc", "--format", "{{json .}}"], "parser": "docker-containers-jsonl" },
+    "startContainer": { "args": ["start", "{id}"] },
+    "stopContainer": { "args": ["stop", "{id}"], "timeoutSeconds": 120 },
+    "restartContainer": { "args": ["restart", "{id}"], "timeoutSeconds": 120 },
+    "removeContainer": { "args": ["rm", "{id}"] },
+    "containerLogs": { "args": ["logs", "--tail", "{tail}", "{id}"] },
+    "listImages": { "args": ["images", "--no-trunc", "--format", "{{json .}}"], "parser": "docker-images-jsonl" },
+    "pullImage": { "args": ["pull", "{image}"], "timeoutSeconds": 1800 },
+    "removeImage": { "args": ["rmi", "{id}"] },
+    "loadImage": { "args": ["load", "-i", "{file}"], "timeoutSeconds": 1800 }
+  }
+}

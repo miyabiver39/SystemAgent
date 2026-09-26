@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Nodes;
 using SystemAgent.Core.Users;
@@ -24,6 +25,9 @@ public interface ITokenProvider
 /// </summary>
 public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
 {
+    /// <summary>イメージのpull/取り込み（テンプレート上の上限30分）を待てるHttpClientのタイムアウト。</summary>
+    public static readonly TimeSpan HttpTimeout = TimeSpan.FromMinutes(35);
+
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
@@ -63,6 +67,45 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task DeleteUserAsync(string userName, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/users/{Uri.EscapeDataString(userName)}", null, authorize: true, cancellationToken);
 
+    public Task<HostEnvironment> GetEnvironmentAsync(bool refresh = false, CancellationToken cancellationToken = default) =>
+        SendAsync<HostEnvironment>(HttpMethod.Get, $"api/system/environment?refresh={refresh}", null, authorize: true, cancellationToken);
+
+    public Task<ContainerRuntimeResponse> GetContainerRuntimeAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ContainerRuntimeResponse>(HttpMethod.Get, "api/containers/runtime", null, authorize: true, cancellationToken);
+
+    public Task<List<ContainerInfo>> GetContainersAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ContainerInfo>>(HttpMethod.Get, "api/containers", null, authorize: true, cancellationToken);
+
+    /// <param name="action">start / stop / restart</param>
+    public Task ContainerActionAsync(string id, string action, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, $"api/containers/{Uri.EscapeDataString(id)}/{action}", null, authorize: true, cancellationToken);
+
+    public Task RemoveContainerAsync(string id, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Delete, $"api/containers/{Uri.EscapeDataString(id)}", null, authorize: true, cancellationToken);
+
+    public Task<ContainerLogsResponse> GetContainerLogsAsync(string id, int tail, CancellationToken cancellationToken = default) =>
+        SendAsync<ContainerLogsResponse>(HttpMethod.Get, $"api/containers/{Uri.EscapeDataString(id)}/logs?tail={tail}", null, authorize: true, cancellationToken);
+
+    public Task<List<PodInfo>> GetPodsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<PodInfo>>(HttpMethod.Get, "api/pods", null, authorize: true, cancellationToken);
+
+    public Task<List<ImageInfo>> GetImagesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<ImageInfo>>(HttpMethod.Get, "api/images", null, authorize: true, cancellationToken);
+
+    public Task PullImageAsync(string image, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, "api/images/pull", new PullImageRequest(image), authorize: true, cancellationToken);
+
+    public Task RemoveImageAsync(string id, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Delete, $"api/images/{Uri.EscapeDataString(id)}", null, authorize: true, cancellationToken);
+
+    /// <summary>イメージアーカイブ(tar)をストリームのまま送信する。</summary>
+    public async Task<ImportImageResponse> ImportImageAsync(Stream archive, string fileName, CancellationToken cancellationToken = default)
+    {
+        using var content = new MultipartFormDataContent { { new StreamContent(archive), "file", fileName } };
+        using var response = await SendCoreAsync(HttpMethod.Post, "api/images/import", content, authorize: true, cancellationToken);
+        return (await response.Content.ReadFromJsonAsync<ImportImageResponse>(Json, cancellationToken))!;
+    }
+
     public Task ChangePasswordAsync(string userName, string newPassword, bool emergency, CancellationToken cancellationToken = default)
     {
         var path = emergency
@@ -86,7 +129,12 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
         HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken)
     {
         using var request = new HttpRequestMessage(method, path);
-        if (body is not null) request.Content = JsonContent.Create(body, options: Json);
+        request.Content = body switch
+        {
+            null => null,
+            HttpContent content => content,
+            _ => JsonContent.Create(body, options: Json),
+        };
         if (authorize && await tokens.GetAccessTokenAsync() is { } token)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);

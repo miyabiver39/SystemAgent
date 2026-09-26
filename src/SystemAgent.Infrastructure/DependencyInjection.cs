@@ -7,7 +7,12 @@ using SystemAgent.Core.Health;
 using SystemAgent.Core.Nodes;
 using SystemAgent.Core.Security;
 using SystemAgent.Core.Users;
+using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
+using SystemAgent.Infrastructure.CapabilityProviders;
+using SystemAgent.Infrastructure.CapabilityProviders.Containers;
+using SystemAgent.Infrastructure.CapabilityProviders.Templates;
+using SystemAgent.Infrastructure.Commands;
 using SystemAgent.Infrastructure.Health;
 using SystemAgent.Infrastructure.Nodes;
 using SystemAgent.Infrastructure.Persistence;
@@ -19,6 +24,8 @@ namespace SystemAgent.Infrastructure;
 public static class DependencyInjection
 {
     private const string DefaultSecretStorePath = "/var/lib/systemagent/secrets";
+    // 現地でOS/バージョン対応を追加・上書きするためのテンプレート置き場（同梱テンプレートと同じIdなら上書き）
+    private const string DefaultExtraTemplatePath = "/etc/systemagent/templates";
 
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration configuration, string contentRootPath)
@@ -39,6 +46,15 @@ public static class DependencyInjection
             new LocalSecretStore(secretStorePath, sp.GetRequiredService<ILogger<LocalSecretStore>>()));
 
         services.AddSingleton(TimeProvider.System);
+
+        // Capability Provider（基本設計書 7章）
+        services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
+        services.AddSingleton<IEnvironmentDetector, EnvironmentDetector>();
+        services.AddSingleton(sp => new CommandTemplateStore(
+            Path.Combine(AppContext.BaseDirectory, "CommandTemplates"),
+            configuration["CommandTemplates:ExtraPath"] ?? DefaultExtraTemplatePath,
+            sp.GetRequiredService<ILogger<CommandTemplateStore>>()));
+        services.AddSingleton<ContainerRuntimeResolver>();
         services.AddScoped<INodeService, NodeService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuditLogger, DbAuditLogger>();

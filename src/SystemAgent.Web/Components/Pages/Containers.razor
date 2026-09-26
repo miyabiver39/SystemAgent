@@ -1,0 +1,335 @@
+@page "/containers"
+@using SystemAgent.Core.CapabilityProviders
+@inject ApiClient Api
+
+<PageTitle>@L["Containers_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Containers_Title"]</h1>
+
+@if (_unavailable is not null)
+{
+    <p class="notice warn">@L["Containers_Unavailable"] @_unavailable</p>
+    return;
+}
+
+@if (_runtime is not null)
+{
+    <p class="hint">@L["Containers_Runtime"]: @_runtime.Name @_runtime.Version（@L["Containers_Template"]: @_runtime.TemplateId）</p>
+}
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
+
+<section>
+    <div class="section-header">
+        <h2>@L["Containers_Containers"]</h2>
+        <label class="checkbox"><input type="checkbox" @bind="_showInfra" /> @L["Containers_ShowInfra"]</label>
+        <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+    </div>
+    @if (_containers is null)
+    {
+        <p class="muted">@L["Common_Loading"]</p>
+    }
+    else if (VisibleContainers.Count == 0)
+    {
+        <p class="muted">@L["Containers_Empty"]</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>@L["Containers_Name"]</th>
+                    <th>@L["Containers_Image"]</th>
+                    <th>@L["Containers_State"]</th>
+                    <th>@L["Containers_Status"]</th>
+                    @if (_runtime?.SupportsPods == true)
+                    {
+                        <th>Pod</th>
+                    }
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var c in VisibleContainers)
+                {
+                    <tr @key="c.Id">
+                        <td>@c.Name<div class="hint mono">@Formatting.ShortId(c.Id)</div></td>
+                        <td class="mono">@c.Image</td>
+                        <td><span class="badge state-@c.State.ToString().ToLowerInvariant()">@L["State_" + c.State]</span></td>
+                        <td>@c.Status</td>
+                        @if (_runtime?.SupportsPods == true)
+                        {
+                            <td>@c.Pod</td>
+                        }
+                        <td>
+                            @if (_busyId == c.Id)
+                            {
+                                <span class="muted">@L["Common_Processing"]</span>
+                            }
+                            else
+                            {
+                                @if (c.State == ContainerState.Running)
+                                {
+                                    <button type="button" class="link" @onclick='() => ActAsync(c, "stop")'>@L["Containers_Stop"]</button>
+                                    <button type="button" class="link" @onclick='() => ActAsync(c, "restart")'>@L["Containers_Restart"]</button>
+                                }
+                                else
+                                {
+                                    <button type="button" class="link" @onclick='() => ActAsync(c, "start")'>@L["Containers_Start"]</button>
+                                }
+                                <button type="button" class="link" @onclick="() => ShowLogsAsync(c)">@L["Containers_Logs"]</button>
+                                @if (c.State != ContainerState.Running)
+                                {
+                                    <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => RemoveContainerAsync(c)" />
+                                }
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+
+    @if (_logsFor is not null)
+    {
+        <div class="card">
+            <div class="section-header">
+                <h2>@L["Containers_Logs"]: @_logsFor.Name</h2>
+                <select @bind="_tail" @bind:after="ReloadLogsAsync">
+                    <option value="100">100</option>
+                    <option value="500">500</option>
+                    <option value="2000">2000</option>
+                </select>
+                <button type="button" class="link" @onclick="ReloadLogsAsync">@L["Common_Reload"]</button>
+                <button type="button" class="link" @onclick="() => _logsFor = null">@L["Common_Close"]</button>
+            </div>
+            <pre class="logs">@(string.IsNullOrEmpty(_logs) ? L["Containers_LogsEmpty"] : _logs)</pre>
+        </div>
+    }
+</section>
+
+@if (_runtime?.SupportsPods == true && _pods is { Count: > 0 })
+{
+    <section>
+        <h2>Pod</h2>
+        <table>
+            <thead>
+                <tr><th>@L["Containers_Name"]</th><th>@L["Containers_State"]</th><th>@L["Containers_ContainerCount"]</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var p in _pods)
+                {
+                    <tr @key="p.Id"><td>@p.Name</td><td>@p.Status</td><td>@p.ContainerCount</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+}
+
+<section>
+    <h2>@L["Images_Title"]</h2>
+    @if (_images is not null)
+    {
+        @if (_images.Count == 0)
+        {
+            <p class="muted">@L["Images_Empty"]</p>
+        }
+        else
+        {
+            <table>
+                <thead>
+                    <tr><th>@L["Images_Tags"]</th><th>ID</th><th>@L["Images_Size"]</th><th>@L["Images_Created"]</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var i in _images)
+                    {
+                        <tr @key="i.Id">
+                            <td class="mono">@(i.Tags.Count == 0 ? "<none>" : string.Join(", ", i.Tags))</td>
+                            <td class="mono">@Formatting.ShortId(i.Id)</td>
+                            <td>@Formatting.Bytes(i.SizeBytes)</td>
+                            <td>@Formatting.DateTime(i.CreatedAt)</td>
+                            <td><ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => RemoveImageAsync(i)" /></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    }
+
+    <div class="card">
+        <h2>@L["Images_Pull"]</h2>
+        <EditForm Model="_pull" OnSubmit="PullAsync" FormName="pull-image" class="grid-form">
+            <label>
+                @L["Images_Name"]
+                <InputText @bind-Value="_pull.Image" placeholder="registry.local:5000/app:1.0" />
+            </label>
+            <div class="form-actions">
+                <button type="submit" class="primary" disabled="@_busy">@L["Images_Pull"]</button>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="card">
+        <h2>@L["Images_Import"]</h2>
+        <p class="hint">@L["Images_ImportHint"]</p>
+        <InputFile OnChange="SelectArchive" accept=".tar,.tar.gz,.tgz" disabled="@_busy" />
+        @if (_archive is not null)
+        {
+            <p>@_archive.Name（@Formatting.Bytes(_archive.Size)）</p>
+            <button type="button" class="primary" disabled="@_busy" @onclick="ImportAsync">@L["Images_Import"]</button>
+        }
+    </div>
+</section>
+
+@code {
+    // 数GBのイメージを想定した上限。大きなファイルはCLIの `systemagent image import` の方が高速
+    private const long MaxArchiveBytes = 20L * 1024 * 1024 * 1024;
+
+    private ContainerRuntimeResponse? _runtime;
+    private List<ContainerInfo>? _containers;
+    private List<PodInfo>? _pods;
+    private List<ImageInfo>? _images;
+    private string? _unavailable;
+    private string? _error;
+    private string? _message;
+    private bool _showInfra;
+    private string? _busyId;
+    private bool _busy;
+    private ContainerInfo? _logsFor;
+    private string? _logs;
+    private int _tail = 100;
+    private readonly PullForm _pull = new();
+    private IBrowserFile? _archive;
+
+    private List<ContainerInfo> VisibleContainers => _containers!.Where(c => _showInfra || !c.IsInfra).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _runtime = await Api.GetContainerRuntimeAsync();
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotImplemented)
+        {
+            _unavailable = ex.Message;
+            return;
+        }
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        await RunAsync(async () =>
+        {
+            _containers = await Api.GetContainersAsync();
+            _images = await Api.GetImagesAsync();
+            _pods = _runtime?.SupportsPods == true ? await Api.GetPodsAsync() : [];
+        });
+    }
+
+    private async Task ActAsync(ContainerInfo container, string action)
+    {
+        _busyId = container.Id;
+        await RunAsync(async () =>
+        {
+            await Api.ContainerActionAsync(container.Id, action);
+            _containers = await Api.GetContainersAsync();
+        });
+        _busyId = null;
+    }
+
+    private async Task RemoveContainerAsync(ContainerInfo container)
+    {
+        await RunAsync(async () =>
+        {
+            await Api.RemoveContainerAsync(container.Id);
+            if (_logsFor?.Id == container.Id) _logsFor = null;
+            _containers = await Api.GetContainersAsync();
+        });
+    }
+
+    private async Task ShowLogsAsync(ContainerInfo container)
+    {
+        _logsFor = container;
+        await ReloadLogsAsync();
+    }
+
+    private async Task ReloadLogsAsync()
+    {
+        if (_logsFor is null) return;
+        await RunAsync(async () => _logs = (await Api.GetContainerLogsAsync(_logsFor.Id, _tail)).Logs);
+    }
+
+    private async Task RemoveImageAsync(ImageInfo image)
+    {
+        await RunAsync(async () =>
+        {
+            await Api.RemoveImageAsync(image.Id);
+            _images = await Api.GetImagesAsync();
+        });
+    }
+
+    private async Task PullAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_pull.Image))
+        {
+            _error = L["Common_RequiredAll"];
+            return;
+        }
+        _busy = true;
+        await RunAsync(async () =>
+        {
+            await Api.PullImageAsync(_pull.Image.Trim());
+            _message = string.Format(L["Images_Pulled"], _pull.Image.Trim());
+            _pull.Image = "";
+            _images = await Api.GetImagesAsync();
+        });
+        _busy = false;
+    }
+
+    private void SelectArchive(InputFileChangeEventArgs e) => _archive = e.File;
+
+    private async Task ImportAsync()
+    {
+        if (_archive is null) return;
+        _busy = true;
+        await RunAsync(async () =>
+        {
+            await using var stream = _archive.OpenReadStream(MaxArchiveBytes);
+            _message = (await Api.ImportImageAsync(stream, _archive.Name)).Output;
+            _archive = null;
+            _images = await Api.GetImagesAsync();
+        });
+        _busy = false;
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _error = null;
+        _message = null;
+        try
+        {
+            await action();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        catch (IOException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+
+    private sealed class PullForm
+    {
+        public string Image { get; set; } = "";
+    }
+}

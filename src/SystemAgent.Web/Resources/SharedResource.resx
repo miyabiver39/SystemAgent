@@ -8,6 +8,7 @@
   <data name="AppName" xml:space="preserve"><value>SystemAgent</value></data>
 
   <data name="Nav_Home" xml:space="preserve"><value>ダッシュボード</value></data>
+  <data name="Nav_Containers" xml:space="preserve"><value>コンテナ</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>
@@ -57,6 +58,45 @@
   <data name="Role_Replica" xml:space="preserve"><value>レプリカ</value></data>
   <data name="Role_Managed" xml:space="preserve"><value>管理対象</value></data>
 
+  <data name="Containers_Title" xml:space="preserve"><value>コンテナ管理</value></data>
+  <data name="Containers_Unavailable" xml:space="preserve"><value>このノードではコンテナ管理を利用できません。</value></data>
+  <data name="Containers_Runtime" xml:space="preserve"><value>コンテナランタイム</value></data>
+  <data name="Containers_Template" xml:space="preserve"><value>テンプレート</value></data>
+  <data name="Containers_Containers" xml:space="preserve"><value>コンテナ</value></data>
+  <data name="Containers_ShowInfra" xml:space="preserve"><value>Podのインフラコンテナも表示</value></data>
+  <data name="Containers_Empty" xml:space="preserve"><value>コンテナはありません。</value></data>
+  <data name="Containers_Name" xml:space="preserve"><value>名前</value></data>
+  <data name="Containers_Image" xml:space="preserve"><value>イメージ</value></data>
+  <data name="Containers_State" xml:space="preserve"><value>状態</value></data>
+  <data name="Containers_Status" xml:space="preserve"><value>ステータス</value></data>
+  <data name="Containers_Start" xml:space="preserve"><value>起動</value></data>
+  <data name="Containers_Stop" xml:space="preserve"><value>停止</value></data>
+  <data name="Containers_Restart" xml:space="preserve"><value>再起動</value></data>
+  <data name="Containers_Logs" xml:space="preserve"><value>ログ</value></data>
+  <data name="Containers_LogsEmpty" xml:space="preserve"><value>（ログはありません）</value></data>
+  <data name="Containers_ContainerCount" xml:space="preserve"><value>コンテナ数</value></data>
+  <data name="State_Unknown" xml:space="preserve"><value>不明</value></data>
+  <data name="State_Created" xml:space="preserve"><value>作成済み</value></data>
+  <data name="State_Running" xml:space="preserve"><value>稼働中</value></data>
+  <data name="State_Paused" xml:space="preserve"><value>一時停止</value></data>
+  <data name="State_Restarting" xml:space="preserve"><value>再起動中</value></data>
+  <data name="State_Exited" xml:space="preserve"><value>停止</value></data>
+  <data name="State_Removing" xml:space="preserve"><value>削除中</value></data>
+  <data name="State_Dead" xml:space="preserve"><value>異常終了</value></data>
+  <data name="Images_Title" xml:space="preserve"><value>イメージ</value></data>
+  <data name="Images_Empty" xml:space="preserve"><value>イメージはありません。</value></data>
+  <data name="Images_Tags" xml:space="preserve"><value>タグ</value></data>
+  <data name="Images_Size" xml:space="preserve"><value>サイズ</value></data>
+  <data name="Images_Created" xml:space="preserve"><value>作成日時</value></data>
+  <data name="Images_Pull" xml:space="preserve"><value>レジストリから取得（pull）</value></data>
+  <data name="Images_Pulled" xml:space="preserve"><value>{0} を取得しました。</value></data>
+  <data name="Images_Name" xml:space="preserve"><value>イメージ名</value></data>
+  <data name="Images_Import" xml:space="preserve"><value>アーカイブから取り込み</value></data>
+  <data name="Images_ImportHint" xml:space="preserve"><value>podman save / docker save で作成したtarファイルを取り込みます（エアギャップ環境向け）。数GBのファイルはCLIの `systemagent image import` の方が高速です。</value></data>
+  <data name="Dashboard_Os" xml:space="preserve"><value>OS</value></data>
+  <data name="Dashboard_Runtime" xml:space="preserve"><value>コンテナランタイム</value></data>
+  <data name="Dashboard_RuntimeNone" xml:space="preserve"><value>なし</value></data>
+
   <data name="Users_Title" xml:space="preserve"><value>ユーザー管理</value></data>
   <data name="Users_Description" xml:space="preserve"><value>通常認証（DB管理）のユーザーです。緊急認証ユーザーはここには表示されません。</value></data>
   <data name="Users_UserName" xml:space="preserve"><value>ユーザー名</value></data>
@@ -75,6 +115,9 @@
   <data name="Account_Changed" xml:space="preserve"><value>パスワードを変更しました。</value></data>
 
   <data name="Common_Loading" xml:space="preserve"><value>読み込み中...</value></data>
+  <data name="Common_Processing" xml:space="preserve"><value>処理中...</value></data>
+  <data name="Common_Reload" xml:space="preserve"><value>再読み込み</value></data>
+  <data name="Common_Close" xml:space="preserve"><value>閉じる</value></data>
   <data name="Common_Delete" xml:space="preserve"><value>削除</value></data>
   <data name="Common_ConfirmDelete" xml:space="preserve"><value>削除を確定</value></data>
   <data name="Common_Cancel" xml:space="preserve"><value>キャンセル</value></data>

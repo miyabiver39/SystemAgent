@@ -1,4 +1,5 @@
 @page "/"
+@using SystemAgent.Core.CapabilityProviders
 @inject ApiClient Api
 
 <PageTitle>@L["Nav_Home"] - @L["AppName"]</PageTitle>
@@ -28,21 +29,34 @@
         <div class="tile-label">@L["Dashboard_NodeCount"]</div>
         <div class="tile-value">@(_nodeCount?.ToString() ?? "-")</div>
     </div>
+    <div class="tile">
+        <div class="tile-label">@L["Dashboard_Os"]</div>
+        <div class="tile-value small">@(_environment?.OsPrettyName ?? "-")</div>
+        <div class="hint">@_environment?.HostName @_environment?.Architecture</div>
+    </div>
+    <div class="tile">
+        <div class="tile-label">@L["Dashboard_Runtime"]</div>
+        <div class="tile-value small">@RuntimeText</div>
+    </div>
 </div>
 
 @code {
     private HealthResponse? _health;
+    private HostEnvironment? _environment;
     private int? _nodeCount;
     private string? _error;
+
+    private string RuntimeText => _environment is null
+        ? "-"
+        : _environment.Tools.Where(t => t.Name is "podman" or "docker").Select(t => $"{t.Name} {t.Version}").DefaultIfEmpty(L["Dashboard_RuntimeNone"]).Aggregate((a, b) => $"{a} / {b}");
 
     protected override async Task OnInitializedAsync()
     {
         _health = await Api.GetHealthAsync();
-        if (!_health.Database) return;
-
         try
         {
-            _nodeCount = (await Api.GetNodesAsync()).Count;
+            _environment = await Api.GetEnvironmentAsync();
+            if (_health.Database) _nodeCount = (await Api.GetNodesAsync()).Count;
         }
         catch (ApiException ex)
         {

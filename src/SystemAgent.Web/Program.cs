@@ -45,7 +45,10 @@ builder.Services.AddScoped<ApiAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<ApiAuthenticationStateProvider>());
 builder.Services.AddSingleton<ApiBaseAddress>();
 builder.Services.AddHttpClient<ApiClient>((sp, client) =>
-    client.BaseAddress = sp.GetRequiredService<ApiBaseAddress>().Value);
+{
+    client.BaseAddress = sp.GetRequiredService<ApiBaseAddress>().Value;
+    client.Timeout = ApiClient.HttpTimeout;
+});
 
 var app = builder.Build();
 

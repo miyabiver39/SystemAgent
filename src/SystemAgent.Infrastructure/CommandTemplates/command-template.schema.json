@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "command-template.schema.json",
+  "title": "SystemAgent コマンドテンプレート",
+  "description": "OS/ツール/バージョンごとのコマンド定義（基本設計書 7章、ADR-005）。capabilityごとの必須コマンド・使用可能なプレースホルダ・パーサーは TemplateRequirements.cs で検証される。",
+  "type": "object",
+  "required": ["id", "capability", "executable", "match", "commands"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "id": {
+      "description": "テンプレートの一意なID。追加テンプレートディレクトリに同じIDのファイルを置くと上書きできる。",
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9.-]*$"
+    },
+    "capability": {
+      "description": "対応する機能。",
+      "enum": ["container-runtime"]
+    },
+    "description": { "type": "string" },
+    "executable": {
+      "description": "実行するコマンド（PATH上の名前または絶対パス）。",
+      "type": "string"
+    },
+    "match": {
+      "description": "このテンプレートを適用する条件。複数が該当する場合はOS指定が具体的なもの→minToolVersionが高いものが優先される。",
+      "type": "object",
+      "required": ["tool"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": { "description": "環境検出で見つかっている必要があるツール名。", "type": "string" },
+        "osIds": {
+          "description": "/etc/os-release の ID または ID_LIKE。\"*\" は全OS。",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": ["*"]
+        },
+        "minToolVersion": { "description": "ツールの最低バージョン（含む）。", "type": "string" },
+        "maxToolVersion": { "description": "ツールの上限バージョン（含まない）。", "type": "string" }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["args"],
+        "additionalProperties": false,
+        "properties": {
+          "args": {
+            "description": "引数。{id} {image} {tail} {file} 等のプレースホルダは実行時に置換される。シェルは介さない。",
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "parser": { "description": "出力を解析するパーサー名（一覧取得系のみ）。", "type": "string" },
+          "timeoutSeconds": { "type": "integer", "minimum": 1, "default": 60 }
+        }
+      }
+    }
+  }
+}

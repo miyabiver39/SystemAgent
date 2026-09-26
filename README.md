@@ -76,9 +76,32 @@ systemagent node list|register|delete
 systemagent user list|create|delete
 systemagent passwd                   # 自分のパスワード変更
 systemagent logout
+systemagent env                      # OS情報・検出されたツール
+systemagent container list|start|stop|restart|rm|logs
+systemagent pod list                 # Podmanのみ
+systemagent image list|pull|rm|import <tar>
 ```
 
 接続先は`--url` → ログイン時のURL → 環境変数`SYSTEMAGENT_URL` → `http://localhost:5000`の順に決まる。`--json`で結果をJSON出力する。ログイン状態は`~/.config/systemagent/session.json`（600）に保存される。開発時は`dotnet run --project src/SystemAgent.Cli -- --url http://localhost:5246 status`のように実行する。
+
+### Linuxノード上での動作確認（WSL）
+
+コンテナ管理等のOS操作はLinux上でしか動かないため、linux-x64向けにpublishしてWSLのディストリビューション内でrootとして起動する。WSLのディストリビューションはネットワークを共有するため、`sa-alma9`のMariaDBを全ノードから`localhost:3306`で使える（中央DB構成の検証にもなる）。
+
+```bash
+dotnet publish src/SystemAgent.Web -c Release -r linux-x64 --self-contained -o artifacts/linux/web
+dotnet publish src/SystemAgent.Cli -c Release -r linux-x64 --self-contained -p:PublishSingleFile=true -o artifacts/linux/cli
+```
+
+```bash
+wsl -d sa-alma9 -u root -- sh -c 'cd /mnt/c/<リポジトリ>/artifacts/linux/web && ConnectionStrings__Default="Server=localhost;Port=3306;Database=systemagent;User=systemagent;Password=systemagent_dev;" ./SystemAgent.Web'
+```
+
+Windowsからは http://localhost:5000 で接続できる。2台目は`Urls=http://0.0.0.0:5001`と`Container__Runtime=docker`を付けて`sa-ubuntu2404`で起動する。
+
+## OS/バージョン対応の追加（コマンドテンプレート）
+
+OSコマンドの差分は`src/SystemAgent.Infrastructure/CommandTemplates/`のJSONで定義する（[ADR-005](docs/adr/0005-command-abstraction.md)、[ADR-016](docs/adr/0016-command-template-implementation.md)）。新しいOS/バージョンへの対応は、原則としてテンプレートの追加だけで行う。現地では`/etc/systemagent/templates/`に置けば再ビルドなしで追加・上書きできる。スキーマは`command-template.schema.json`、必須コマンドは`TemplateRequirements.cs`。
 
 ## DBマイグレーション
 
@@ -91,4 +114,5 @@ dotnet ef database update --project src/SystemAgent.Infrastructure --startup-pro
 
 ## ステータス
 
-[ADR-013](docs/adr/0013-mvp-implementation-order.md)の①「基盤」を実装済み: 永続化、認証（通常JWT + ローカル緊急認証 + 初期セットアップ）、ユーザー管理、ノード管理（手動登録）、監査ログ、WebUI、CLI。次は②コンテナ管理（Podman）。
+[ADR-013](docs/adr/0013-mvp-implementation-order.md)の①「基盤」を実装済み: 永続化、認証（通常JWT + ローカル緊急認証 + 初期セットアップ）、ユーザー管理、ノード管理（手動登録）、監査ログ、WebUI、CLI。
+②コンテナ管理を実装済み: コンテナ一覧/起動/停止/再起動/削除/ログ、Pod一覧、イメージ一覧/pull/削除/アーカイブ取り込み、環境検出（Podman 5.8・4.9、Docker 29.1で検証）。次は③ネットワーク設定・NTP設定。

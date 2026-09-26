@@ -235,6 +235,128 @@ user.Subcommands.Add(userCreate);
 user.Subcommands.Add(userDelete);
 root.Subcommands.Add(user);
 
+// --- env ---
+var refreshOption = new Option<bool>("--refresh") { Description = "キャッシュを使わず再検出する" };
+var env = new Command("env", "このノードのOS情報と検出された管理対象ツールを表示する");
+env.Options.Add(refreshOption);
+env.SetAction((p, ct) => Run(p, async api =>
+{
+    var e = await api.GetEnvironmentAsync(p.GetValue(refreshOption), ct);
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(e); return; }
+    Console.WriteLine($"ホスト名: {e.HostName}");
+    Console.WriteLine($"OS      : {e.OsPrettyName}（ID={e.OsId}, VERSION_ID={e.OsVersion}, ID_LIKE={string.Join(' ', e.OsIdLike)}）");
+    Console.WriteLine($"アーキ  : {e.Architecture}");
+    Console.WriteLine("ツール  :");
+    foreach (var tool in e.Tools) Console.WriteLine($"  {tool.Name} {tool.Version}");
+}));
+root.Subcommands.Add(env);
+
+// --- container ---
+var container = new Command("container", "コンテナ管理（このノード）");
+var allOption = new Option<bool>("--all", "-a") { Description = "Podのインフラコンテナも表示する" };
+var containerList = new Command("list", "コンテナを一覧表示する");
+containerList.Options.Add(allOption);
+containerList.SetAction((p, ct) => Run(p, async api =>
+{
+    var containers = (await api.GetContainersAsync(ct)).Where(c => p.GetValue(allOption) || !c.IsInfra).ToList();
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(containers); return; }
+    if (containers.Count == 0) { Console.WriteLine("コンテナはありません。"); return; }
+    ConsoleUi.WriteTable(["ID", "名前", "イメージ", "状態", "ステータス", "Pod"],
+        containers.Select(c => (IReadOnlyList<string>)[Formatting.ShortId(c.Id), c.Name, c.Image, c.State.ToString(), c.Status, c.Pod ?? ""]));
+}));
+container.Subcommands.Add(containerList);
+var containerIdArgument = new Argument<string>("container") { Description = "コンテナ名またはID" };
+foreach (var (name, description) in new[] { ("start", "起動する"), ("stop", "停止する"), ("restart", "再起動する") })
+{
+    var command = new Command(name, $"コンテナを{description}");
+    command.Arguments.Add(containerIdArgument);
+    command.SetAction((p, ct) => Run(p, async api =>
+    {
+        await api.ContainerActionAsync(p.GetValue(containerIdArgument)!, name, ct);
+        Console.WriteLine($"{p.GetValue(containerIdArgument)} を{description[..^2]}しました。");
+    }));
+    container.Subcommands.Add(command);
+}
+var containerRemove = new Command("rm", "コンテナを削除する（停止している必要がある）");
+containerRemove.Arguments.Add(containerIdArgument);
+containerRemove.SetAction((p, ct) => Run(p, async api =>
+{
+    await api.RemoveContainerAsync(p.GetValue(containerIdArgument)!, ct);
+    Console.WriteLine($"{p.GetValue(containerIdArgument)} を削除しました。");
+}));
+container.Subcommands.Add(containerRemove);
+var tailOption = new Option<int>("--tail", "-n") { Description = "末尾から表示する行数", DefaultValueFactory = _ => 200 };
+var containerLogs = new Command("logs", "コンテナのログを表示する");
+containerLogs.Arguments.Add(containerIdArgument);
+containerLogs.Options.Add(tailOption);
+containerLogs.SetAction((p, ct) => Run(p, async api =>
+    Console.Write((await api.GetContainerLogsAsync(p.GetValue(containerIdArgument)!, p.GetValue(tailOption), ct)).Logs)));
+container.Subcommands.Add(containerLogs);
+root.Subcommands.Add(container);
+
+// --- pod ---
+var pod = new Command("pod", "Pod管理（Podmanのみ）");
+var podList = new Command("list", "Podを一覧表示する");
+podList.SetAction((p, ct) => Run(p, async api =>
+{
+    var pods = await api.GetPodsAsync(ct);
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(pods); return; }
+    if (pods.Count == 0) { Console.WriteLine("Podはありません（DockerではPodは利用できません）。"); return; }
+    ConsoleUi.WriteTable(["ID", "名前", "状態", "コンテナ数"],
+        pods.Select(x => (IReadOnlyList<string>)[Formatting.ShortId(x.Id), x.Name, x.Status, x.ContainerCount.ToString()]));
+}));
+pod.Subcommands.Add(podList);
+root.Subcommands.Add(pod);
+
+// --- image ---
+var image = new Command("image", "コンテナイメージ管理（このノード）");
+var imageList = new Command("list", "イメージを一覧表示する");
+imageList.SetAction((p, ct) => Run(p, async api =>
+{
+    var images = await api.GetImagesAsync(ct);
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(images); return; }
+    if (images.Count == 0) { Console.WriteLine("イメージはありません。"); return; }
+    ConsoleUi.WriteTable(["ID", "タグ", "サイズ", "作成日時"],
+        images.Select(i => (IReadOnlyList<string>)
+        [
+            Formatting.ShortId(i.Id), i.Tags.Count == 0 ? "<none>" : string.Join(", ", i.Tags),
+            Formatting.Bytes(i.SizeBytes),
+            Formatting.DateTime(i.CreatedAt),
+        ]));
+}));
+image.Subcommands.Add(imageList);
+var imageArgument = new Argument<string>("image") { Description = "イメージ名（例: registry.local:5000/app:1.0）またはID" };
+var imagePull = new Command("pull", "レジストリからイメージを取得する");
+imagePull.Arguments.Add(imageArgument);
+imagePull.SetAction((p, ct) => Run(p, async api =>
+{
+    Console.Error.WriteLine($"{p.GetValue(imageArgument)} を取得しています...");
+    await api.PullImageAsync(p.GetValue(imageArgument)!, ct);
+    Console.WriteLine("取得しました。");
+}));
+image.Subcommands.Add(imagePull);
+var imageRemove = new Command("rm", "イメージを削除する");
+imageRemove.Arguments.Add(imageArgument);
+imageRemove.SetAction((p, ct) => Run(p, async api =>
+{
+    await api.RemoveImageAsync(p.GetValue(imageArgument)!, ct);
+    Console.WriteLine($"{p.GetValue(imageArgument)} を削除しました。");
+}));
+image.Subcommands.Add(imageRemove);
+var archiveArgument = new Argument<FileInfo>("archive") { Description = "イメージアーカイブ（podman save / docker save で作成したtar）" };
+var imageImport = new Command("import", "イメージアーカイブを取り込む（エアギャップ環境向け）");
+imageImport.Arguments.Add(archiveArgument);
+imageImport.SetAction((p, ct) => Run(p, async api =>
+{
+    var archive = p.GetValue(archiveArgument)!;
+    if (!archive.Exists) throw new CliException($"ファイルが見つかりません: {archive.FullName}");
+    Console.Error.WriteLine($"{archive.Name}（{Formatting.Bytes(archive.Length)}）を送信しています...");
+    await using var stream = archive.OpenRead();
+    Console.WriteLine((await api.ImportImageAsync(stream, archive.Name, ct)).Output);
+}));
+image.Subcommands.Add(imageImport);
+root.Subcommands.Add(image);
+
 return await root.Parse(args).InvokeAsync();
 
 string ResolveUrl(ParseResult p) =>
@@ -246,7 +368,7 @@ string ResolveUrl(ParseResult p) =>
 async Task<int> Run(ParseResult p, Func<ApiClient, Task> action)
 {
     var url = ResolveUrl(p);
-    using var http = new HttpClient { BaseAddress = new Uri(url.EndsWith('/') ? url : url + "/") };
+    using var http = new HttpClient { BaseAddress = new Uri(url.EndsWith('/') ? url : url + "/"), Timeout = ApiClient.HttpTimeout };
     try
     {
         await action(new ApiClient(http, tokens));
@@ -260,6 +382,11 @@ async Task<int> Run(ParseResult p, Func<ApiClient, Task> action)
     catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
     {
         Console.Error.WriteLine("エラー: ログインしていないか、トークンの有効期限が切れています。`systemagent login` を実行してください。");
+        return 1;
+    }
+    catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotImplemented)
+    {
+        Console.Error.WriteLine($"エラー: このノードでは利用できません。{ex.Message}");
         return 1;
     }
     catch (ApiException ex)

@@ -25,7 +25,8 @@ foreach ($name in $distros.Keys) {
 
 Invoke-WslRoot 'sa-alma9' @'
 set -e
-dnf -y -q install podman chrony iproute NetworkManager procps-ng mariadb-server
+# libicu: .NETのグローバリゼーションに必要（最小構成のイメージには入っていない）
+dnf -y -q install podman chrony iproute NetworkManager procps-ng mariadb-server libicu
 systemctl enable --now mariadb
 mysql <<'SQL'
 CREATE DATABASE IF NOT EXISTS systemagent CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -39,7 +40,7 @@ Invoke-WslRoot 'sa-ubuntu2404' @'
 set -e
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq podman docker.io chrony iproute2
+apt-get install -y -qq podman docker.io chrony iproute2 libicu74
 '@
 
 Write-Host "セットアップ完了。開発中は scripts/dev/start-wsl.ps1 でディストリビューションを起動維持してください。"
