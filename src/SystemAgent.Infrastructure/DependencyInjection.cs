@@ -14,7 +14,8 @@ public static class DependencyInjection
 
         // ServerVersion.AutoDetect()はDB接続を要求するため使用しない。
         // MariaDB起動前でもアプリを起動可能にする必要がある（基本設計書 5.2節）。
-        var serverVersion = new MariaDbServerVersion(new Version(10, 11, 0));
+        var serverVersion = new MariaDbServerVersion(
+            Version.Parse(configuration["Database:MariaDbVersion"] ?? "10.5.0"));
 
         services.AddDbContext<AppDbContext>(options =>
             options.UseMySql(connectionString, serverVersion));

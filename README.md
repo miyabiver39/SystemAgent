@@ -35,6 +35,15 @@ WebUIとWebAPIは`SystemAgent.Web`に同居し、同一プロセス・同一ポ�
 dotnet build
 ```
 
+## 開発・検証環境（WSL2）
+
+RHEL系/Ubuntu系の検証と開発用MariaDBはWSL2上に構築する（[ADR-014](docs/adr/0014-dev-test-environment.md)）。
+
+```powershell
+./scripts/dev/setup-wsl.ps1   # 初回のみ（冪等）
+./scripts/dev/start-wsl.ps1   # 開発開始時（ディストリビューションの自動停止を防ぐ）
+```
+
 ## 実行（開発時）
 
 ```bash
