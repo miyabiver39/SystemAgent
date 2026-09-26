@@ -114,6 +114,10 @@ dotnet publish src/SystemAgent.Cli -c Release -r linux-x64 --self-contained -p:P
 
 [ADR-018](docs/adr/0018-cluster-pki-and-node-proxy.md)。最初の1台で`systemagent cluster init <クラスタ名>`（またはWebUIの「ノード」画面）を実行して自己CAを作る。追加するノードでは初期セットアップ後、既存ノードで発行した参加トークンで`sudo systemagent join <トークン>`を実行する。以降はWebUIの「操作対象ノード」またはCLIの`--node <ノード名>`で、任意の1台から他ノードを操作できる。
 
+## コンテナレジストリ
+
+[ADR-023](docs/adr/0023-container-registry-credentials.md)。非公開レジストリは WebUI の「レジストリ」画面または`systemagent registry login <レジストリ> -u <ユーザー>`で登録する（ログインに成功した場合だけ暗号化して保存）。以降の`image pull`では自動でログインする。
+
 ## 冗長化（HA）
 
 [ADR-022](docs/adr/0022-keepalived-and-db-promotion.md)。WebUIの「冗長化（HA）」画面または`systemagent ha set` → `systemagent ha apply`で keepalived を設定する。VIPを保持したノードのDBがマスターになり、それ以外は読み取り専用になる。元マスターの復帰は既定で承認待ち（`systemagent ha rejoin`）。MariaDB側の前提（log_bin・log_slave_updates・gtid_strict_mode・一意のserver_id）は運用者が設定する。

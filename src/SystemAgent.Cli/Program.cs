@@ -474,6 +474,56 @@ serviceLogs.SetAction((p, ct) => RunOnNode(p, async api =>
 service.Subcommands.Add(serviceLogs);
 root.Subcommands.Add(service);
 
+// --- registry ---
+var registry = new Command("registry", "コンテナレジストリの認証情報（pull時に自動でログインする）");
+var registryList = new Command("list", "登録済みのレジストリを一覧表示する");
+registryList.SetAction((p, ct) => RunOnNode(p, async api =>
+{
+    var registries = await api.GetRegistriesAsync(ct);
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(registries); return; }
+    if (registries.Count == 0) { Console.WriteLine("登録されたレジストリはありません。"); return; }
+    ConsoleUi.WriteTable(["レジストリ", "ユーザー", "更新日時"],
+        registries.Select(r => (IReadOnlyList<string>)[r.Registry, r.Username, Formatting.DateTime(r.UpdatedAt)]));
+}));
+registry.Subcommands.Add(registryList);
+var registryArgument = new Argument<string>("registry") { Description = "レジストリ（ホスト名[:ポート]。Docker Hubは docker.io）" };
+var registryUser = new Option<string?>("--username", "-u") { Description = "ユーザー名（省略時は登録済みの値で再ログイン）" };
+var registryPasswordStdin = new Option<bool>("--password-stdin") { Description = "パスワード（アクセストークン）を標準入力から読む" };
+var registryLogin = new Command("login", "レジストリにログインし、成功したら認証情報を保存する");
+registryLogin.Arguments.Add(registryArgument);
+registryLogin.Options.Add(registryUser);
+registryLogin.Options.Add(registryPasswordStdin);
+registryLogin.SetAction((p, ct) => RunOnNode(p, async api =>
+{
+    var name = p.GetValue(registryArgument)!;
+    var userName = p.GetValue(registryUser);
+    string? password = null;
+    if (userName is null)
+    {
+        // 登録済みの認証情報で再ログイン（ログイン確認）
+        userName = (await api.GetRegistriesAsync(ct)).FirstOrDefault(r => r.Registry == name.Trim().ToLowerInvariant())?.Username
+            ?? throw new CliException($"{name} は登録されていません。--username を指定してください。");
+    }
+    else
+    {
+        password = p.GetValue(registryPasswordStdin)
+            ? Console.In.ReadToEnd().TrimEnd('\r', '\n')
+            : ConsoleUi.ReadSecret("パスワード（空Enterで登録済みの値を使用）: ");
+    }
+    await api.SaveRegistryAsync(new SaveRegistryRequest(name, userName, string.IsNullOrEmpty(password) ? null : password), ct);
+    Console.WriteLine($"{userName}@{name} でログインし、保存しました。");
+}));
+registry.Subcommands.Add(registryLogin);
+var registryLogout = new Command("logout", "レジストリからログアウトし、認証情報を削除する");
+registryLogout.Arguments.Add(registryArgument);
+registryLogout.SetAction((p, ct) => RunOnNode(p, async api =>
+{
+    await api.RemoveRegistryAsync(p.GetValue(registryArgument)!, ct);
+    Console.WriteLine($"{p.GetValue(registryArgument)} の認証情報を削除しました。");
+}));
+registry.Subcommands.Add(registryLogout);
+root.Subcommands.Add(registry);
+
 // --- backup ---
 var backup = new Command("backup", "中央DBのバックアップ（保存先はこのノード）");
 var backupList = new Command("list", "バックアップと設定を一覧表示する");

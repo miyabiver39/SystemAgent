@@ -34,6 +34,11 @@ public interface IContainerRuntimeProvider
     Task<string> LoadImageAsync(string archivePath, CancellationToken cancellationToken = default);
 
     Task<IReadOnlyList<PodInfo>> ListPodsAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>レジストリにログインする。パスワードは標準入力で渡す（プロセス一覧に出さない）。</summary>
+    Task LoginAsync(string registry, string username, string password, CancellationToken cancellationToken = default);
+
+    Task LogoutAsync(string registry, CancellationToken cancellationToken = default);
 }
 
 public sealed record RuntimeInfo(string Name, string Version, string TemplateId);

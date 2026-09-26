@@ -68,6 +68,7 @@ public static class DependencyInjection
 
         services.AddSingleton<CapabilityTemplateResolver>();
         services.AddSingleton<ContainerRuntimeResolver>();
+        services.AddSingleton<RegistryService>();
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();
         services.AddSingleton<ServiceManagement>();

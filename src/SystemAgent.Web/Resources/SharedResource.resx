@@ -103,6 +103,22 @@
   <data name="Ha_ApplyHint" xml:space="preserve"><value>keepalived -t で検証してから置き換え、再起動に失敗した場合は元に戻します。</value></data>
   <data name="Ha_Saved" xml:space="preserve"><value>HA設定を保存し、keepalived に適用しました。</value></data>
   <data name="Ha_History" xml:space="preserve"><value>履歴</value></data>
+  <data name="Nav_Registries" xml:space="preserve"><value>レジストリ</value></data>
+  <data name="Registries_Title" xml:space="preserve"><value>コンテナレジストリ</value></data>
+  <data name="Registries_Hint" xml:space="preserve"><value>非公開レジストリの認証情報をこのノードに登録します。パスワードは暗号化して保存し、イメージの取得（pull）のたびに自動でログインします（Podmanのログイン状態は再起動で消えるため）。ノードごとの設定です。</value></data>
+  <data name="Registries_Empty" xml:space="preserve"><value>登録されたレジストリはありません（公開イメージは登録なしで取得できます）。</value></data>
+  <data name="Registries_Registry" xml:space="preserve"><value>レジストリ（ホスト名[:ポート]）</value></data>
+  <data name="Registries_Username" xml:space="preserve"><value>ユーザー名</value></data>
+  <data name="Registries_Password" xml:space="preserve"><value>パスワード / アクセストークン</value></data>
+  <data name="Registries_UpdatedAt" xml:space="preserve"><value>更新日時</value></data>
+  <data name="Registries_Retest" xml:space="preserve"><value>ログイン確認</value></data>
+  <data name="Registries_Edit" xml:space="preserve"><value>編集</value></data>
+  <data name="Registries_Add" xml:space="preserve"><value>レジストリの追加・更新</value></data>
+  <data name="Registries_Login" xml:space="preserve"><value>ログインして保存</value></data>
+  <data name="Registries_LoginHint" xml:space="preserve"><value>ログインに成功した場合だけ保存します。既存の登録を編集する場合、パスワードを空欄にすると保存済みの値を使います。</value></data>
+  <data name="Registries_Saved" xml:space="preserve"><value>{0} にログインしました。</value></data>
+  <data name="Registries_Removed" xml:space="preserve"><value>{0} の認証情報を削除しました。</value></data>
+  <data name="Registries_LoginFailed" xml:space="preserve"><value>ログインに失敗しました。</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

@@ -37,6 +37,8 @@ public static class TemplateRequirements
                     ["removeImage"] = new(true, ["id"]),
                     ["loadImage"] = new(true, ["file"]),
                     ["listPods"] = new(false, [], ContainerOutputParsers.Pods.Keys),
+                    ["registryLogin"] = new(false, ["registry", "username"]),
+                    ["registryLogout"] = new(false, ["registry"]),
                 },
                 Settings: new Dictionary<string, SettingRequirement>()),
 

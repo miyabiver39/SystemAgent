@@ -15,7 +15,7 @@ namespace SystemAgent.Web.Controllers;
 [Authorize]
 [Route("api/images")]
 public class ImagesController(
-    ContainerRuntimeResolver resolver, IAuditLogger audit, IConfiguration configuration, ILogger<ImagesController> logger) : ControllerBase
+    ContainerRuntimeResolver resolver, RegistryService registries, IAuditLogger audit, IConfiguration configuration, ILogger<ImagesController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ImageInfo>> List(CancellationToken cancellationToken) =>
@@ -25,6 +25,7 @@ public class ImagesController(
     public async Task<IActionResult> Pull(PullImageRequest request, CancellationToken cancellationToken)
     {
         var runtime = await resolver.ResolveAsync(cancellationToken);
+        await registries.EnsureLoginAsync(runtime, request.Image, cancellationToken);
         await runtime.PullImageAsync(request.Image, cancellationToken);
         await audit.LogAsync(User.Identity!.Name!, "image.pull", $"{runtime.Runtime.Name}: {request.Image}", cancellationToken);
         return NoContent();

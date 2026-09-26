@@ -16,6 +16,8 @@
     "pullImage": { "args": ["pull", "{image}"], "timeoutSeconds": 1800 },
     "removeImage": { "args": ["rmi", "{id}"] },
     "loadImage": { "args": ["load", "-i", "{file}"], "timeoutSeconds": 1800 },
+    "registryLogin": { "args": ["login", "--username", "{username}", "--password-stdin", "{registry}"], "timeoutSeconds": 60 },
+    "registryLogout": { "args": ["logout", "{registry}"] },
     "listPods": { "args": ["pod", "ps", "--format", "json"], "parser": "podman-pods-json" }
   }
 }

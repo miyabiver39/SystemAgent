@@ -63,6 +63,27 @@ public sealed partial class TemplateContainerRuntimeProvider(TemplateCommandExec
             (await executor.RunAsync("listPods", null, cancellationToken)).StandardOutput);
     }
 
+    public Task LoginAsync(string registry, string username, string password, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("registryLogin");
+        if (username.Length is 0 or > 256 || username.StartsWith('-') || username.Any(char.IsControl))
+            throw new ArgumentException("ユーザー名が不正です。");
+        return executor.RunWithInputAsync("registryLogin",
+            Values(("registry", RegistryName.Validate(registry)), ("username", username)), password, cancellationToken);
+    }
+
+    public Task LogoutAsync(string registry, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("registryLogout");
+        return executor.RunAsync("registryLogout", Values(("registry", RegistryName.Validate(registry))), cancellationToken);
+    }
+
+    private void RequireCommand(string command)
+    {
+        if (!executor.Has(command))
+            throw new CapabilityUnavailableException($"テンプレート {executor.Template.Id} はレジストリ操作（{command}）に対応していません。");
+    }
+
     private static Dictionary<string, string> Values(params (string Key, string Value)[] values) =>
         values.ToDictionary(v => v.Key, v => v.Value);
 

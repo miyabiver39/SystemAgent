@@ -29,6 +29,15 @@ public sealed record PullImageRequest([Required, MaxLength(512)] string Image);
 
 public sealed record ImportImageResponse(string Output);
 
+/// <summary>登録済みのコンテナレジストリ（パスワードは返さない）。</summary>
+public sealed record RegistryView(string Registry, string Username, DateTimeOffset UpdatedAt);
+
+/// <param name="Password">省略時は保存済みのパスワードでログインし直す。</param>
+public sealed record SaveRegistryRequest(
+    [Required, MaxLength(253)] string Registry,
+    [Required, MaxLength(256)] string Username,
+    [MaxLength(4096)] string? Password);
+
 public sealed record NtpResponse(NtpImplementationInfo Implementation, NtpStatus Status);
 
 public sealed record SetNtpServersRequest([Required, MinLength(1)] IReadOnlyList<string> Servers);

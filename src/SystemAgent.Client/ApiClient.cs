@@ -164,6 +164,15 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task PullImageAsync(string image, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Post, "api/images/pull", new PullImageRequest(image), authorize: true, cancellationToken);
 
+    public Task<List<RegistryView>> GetRegistriesAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<List<RegistryView>>(HttpMethod.Get, "api/registries", null, authorize: true, cancellationToken);
+
+    public Task SaveRegistryAsync(SaveRegistryRequest request, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Put, "api/registries", request, authorize: true, cancellationToken);
+
+    public Task RemoveRegistryAsync(string registry, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Delete, $"api/registries/{Uri.EscapeDataString(registry)}", null, authorize: true, cancellationToken);
+
     public Task RemoveImageAsync(string id, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/images/{Uri.EscapeDataString(id)}", null, authorize: true, cancellationToken);
 
@@ -247,7 +256,13 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
         {
             var problem = await response.Content.ReadFromJsonAsync<Problem>(Json, cancellationToken);
             if (problem?.Errors is { Count: > 0 } errors) return string.Join(" ", errors.SelectMany(e => e.Value));
-            return problem?.Detail ?? problem?.Title;
+            // NotFound() 等は英語のTitleだけなので、よく返す状態コードは日本語にする
+            return problem?.Detail ?? response.StatusCode switch
+            {
+                HttpStatusCode.NotFound => "対象が見つかりません（削除済みか、名前が違います）。",
+                HttpStatusCode.Forbidden => "この操作は許可されていません。",
+                _ => problem?.Title,
+            };
         }
         catch (JsonException)
         {
