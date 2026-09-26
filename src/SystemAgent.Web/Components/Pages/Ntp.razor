@@ -1,6 +1,6 @@
 @page "/ntp"
 @using SystemAgent.Core.CapabilityProviders
-@inject ApiClient Api
+@inherits NodeScopedPage
 
 <PageTitle>@L["Ntp_Title"] - @L["AppName"]</PageTitle>
 
@@ -98,17 +98,16 @@ else
     private bool _busy;
     private readonly ServersForm _form = new();
 
-    protected override Task OnInitializedAsync() => LoadAsync();
-
-    private async Task LoadAsync()
+    protected override async Task LoadAsync()
     {
         _error = null;
+        _unavailable = null;
         try
         {
             _ntp = await Api.GetNtpAsync();
             _form.Servers = string.Join('\n', _ntp.Status.ConfiguredServers);
         }
-        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotImplemented)
+        catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.NotImplemented or HttpStatusCode.BadGateway)
         {
             _unavailable = ex.Message;
         }

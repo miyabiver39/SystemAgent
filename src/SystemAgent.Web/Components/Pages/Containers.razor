@@ -1,6 +1,6 @@
 @page "/containers"
 @using SystemAgent.Core.CapabilityProviders
-@inject ApiClient Api
+@inherits NodeScopedPage
 
 <PageTitle>@L["Containers_Title"] - @L["AppName"]</PageTitle>
 
@@ -29,7 +29,7 @@
     <div class="section-header">
         <h2>@L["Containers_Containers"]</h2>
         <label class="checkbox"><input type="checkbox" @bind="_showInfra" /> @L["Containers_ShowInfra"]</label>
-        <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+        <button type="button" class="link" @onclick="LoadListsAsync">@L["Common_Reload"]</button>
     </div>
     @if (_containers is null)
     {
@@ -209,21 +209,27 @@
 
     private List<ContainerInfo> VisibleContainers => _containers!.Where(c => _showInfra || !c.IsInfra).ToList();
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadAsync()
     {
+        _unavailable = null;
+        _runtime = null;
+        _containers = null;
+        _images = null;
+        _pods = null;
+        _logsFor = null;
         try
         {
             _runtime = await Api.GetContainerRuntimeAsync();
         }
-        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotImplemented)
+        catch (ApiException ex) when (ex.StatusCode is HttpStatusCode.NotImplemented or HttpStatusCode.BadGateway)
         {
             _unavailable = ex.Message;
             return;
         }
-        await LoadAsync();
+        await LoadListsAsync();
     }
 
-    private async Task LoadAsync()
+    private async Task LoadListsAsync()
     {
         await RunAsync(async () =>
         {

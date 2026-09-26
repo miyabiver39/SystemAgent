@@ -1,15 +1,13 @@
 namespace SystemAgent.Core.Nodes;
 
+/// <summary>
+/// 登録済みノードの参照・削除。ノードの登録はクラスタ参加（参加トークン + 証明書発行）でのみ行う（ADR-018）。
+/// </summary>
 public interface INodeService
 {
     Task<IReadOnlyList<NodeInfo>> ListAsync(CancellationToken cancellationToken = default);
 
     Task<NodeInfo?> GetAsync(Guid id, CancellationToken cancellationToken = default);
 
-    /// <returns>同一ホスト名が登録済みの場合はnull。</returns>
-    Task<NodeInfo?> RegisterAsync(NodeRegistration registration, CancellationToken cancellationToken = default);
-
     Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }
-
-public sealed record NodeRegistration(string HostName, string IpAddress, OsInfo Os, NodeRole Role);

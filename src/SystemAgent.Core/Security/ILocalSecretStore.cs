@@ -16,6 +16,12 @@ public interface ILocalSecretStore
     bool VerifyEmergencyUser(string userName, string password);
 
     bool ChangeEmergencyPassword(string userName, string newPassword);
+
+    /// <summary>名前付きの秘密情報（CA秘密鍵・ノード秘密鍵など）。無ければnull。</summary>
+    string? GetSecret(string name);
+
+    /// <summary>名前付きの秘密情報を保存する。valueがnullなら削除。</summary>
+    void SetSecret(string name, string? value);
 }
 
 public enum SetupResult

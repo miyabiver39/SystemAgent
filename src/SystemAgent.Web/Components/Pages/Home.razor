@@ -1,6 +1,6 @@
 @page "/"
 @using SystemAgent.Core.CapabilityProviders
-@inject ApiClient Api
+@inherits NodeScopedPage
 
 <PageTitle>@L["Nav_Home"] - @L["AppName"]</PageTitle>
 
@@ -50,13 +50,15 @@
         ? "-"
         : _environment.Tools.Where(t => t.Name is "podman" or "docker").Select(t => $"{t.Name} {t.Version}").DefaultIfEmpty(L["Dashboard_RuntimeNone"]).Aggregate((a, b) => $"{a} / {b}");
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task LoadAsync()
     {
-        _health = await Api.GetHealthAsync();
+        _error = null;
+        _environment = null;
+        _health = await RootApi.GetHealthAsync();
         try
         {
+            if (_health.Database) _nodeCount = (await RootApi.GetNodesAsync()).Count;
             _environment = await Api.GetEnvironmentAsync();
-            if (_health.Database) _nodeCount = (await Api.GetNodesAsync()).Count;
         }
         catch (ApiException ex)
         {

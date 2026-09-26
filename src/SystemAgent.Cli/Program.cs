@@ -21,10 +21,16 @@ var urlOption = new Option<string?>("--url")
     Recursive = true,
 };
 var jsonOption = new Option<bool>("--json") { Description = "結果をJSONで出力する", Recursive = true };
+var nodeOption = new Option<string?>("--node")
+{
+    Description = "操作対象のノード（ノード名またはID。省略時はこのノード）。コンテナ・NTP・ネットワーク等の操作に使える",
+    Recursive = true,
+};
 
 var root = new RootCommand("SystemAgent CLI");
 root.Options.Add(urlOption);
 root.Options.Add(jsonOption);
+root.Options.Add(nodeOption);
 
 // --- setup ---
 var setupTokenOption = new Option<string?>("--token") { Description = "セットアップトークン（省略時はsetup-tokenファイルから読む）" };
@@ -128,49 +134,25 @@ passwd.SetAction((p, ct) => Run(p, async api =>
 }));
 root.Subcommands.Add(passwd);
 
-// --- node ---
-var node = new Command("node", "ノード管理");
+// --- node / cluster ---
+var node = new Command("node", "登録ノード（登録は cluster token → join で行う）");
 var nodeList = new Command("list", "登録ノードを一覧表示する");
 nodeList.SetAction((p, ct) => Run(p, async api =>
 {
     var nodes = await api.GetNodesAsync(ct);
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(nodes); return; }
     if (nodes.Count == 0) { Console.WriteLine("登録済みのノードはありません。"); return; }
+    var self = (await api.GetClusterAsync(ct)).NodeId;
     ConsoleUi.WriteTable(
-        ["ID", "ホスト名", "IPアドレス", "OS", "役割", "登録日時"],
+        ["ID", "ノード名", "接続先", "OS", "証明書の有効期限", ""],
         nodes.Select(n => (IReadOnlyList<string>)
         [
-            n.Id.ToString(), n.HostName, n.IpAddress, $"{n.Os.Distribution} {n.Os.Version} ({n.Os.Architecture})",
-            n.Role.ToString(), n.RegisteredAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+            n.Id.ToString(), n.HostName, $"{n.IpAddress}:{n.ClusterPort}", $"{n.Os.Distribution} {n.Os.Version} ({n.Os.Architecture})",
+            Formatting.DateTime(n.CertificateNotAfter), n.Id == self ? "このノード" : "",
         ]));
 }));
-var hostOption = new Option<string>("--host") { Description = "ホスト名", Required = true };
-var ipOption = new Option<string>("--ip") { Description = "IPアドレス", Required = true };
-var distroOption = new Option<string>("--distro") { Description = "ディストリビューション（例: almalinux）", Required = true };
-var versionOption = new Option<string>("--os-version") { Description = "OSバージョン（例: 9.8）", Required = true };
-var archOption = new Option<string>("--arch") { Description = "アーキテクチャ", DefaultValueFactory = _ => "x86_64" };
-var roleOption = new Option<NodeRole>("--role") { Description = "役割", DefaultValueFactory = _ => NodeRole.Managed };
-var nodeRegister = new Command("register", "ノードを登録する");
-foreach (var o in new Option[] { hostOption, ipOption, distroOption, versionOption, archOption, roleOption }) nodeRegister.Options.Add(o);
-nodeRegister.SetAction((p, ct) => Run(p, async api =>
-{
-    NodeInfo created;
-    try
-    {
-        created = await api.RegisterNodeAsync(new RegisterNodeRequest(
-            p.GetValue(hostOption)!, p.GetValue(ipOption)!,
-            new OsInfo(p.GetValue(distroOption)!, p.GetValue(versionOption)!, p.GetValue(archOption)!),
-            p.GetValue(roleOption)), ct);
-    }
-    catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
-    {
-        throw new CliException("同じホスト名のノードが既に登録されています。");
-    }
-    if (p.GetValue(jsonOption)) ConsoleUi.WriteJson(created);
-    else Console.WriteLine($"ノードを登録しました: {created.HostName} ({created.Id})");
-}));
 var nodeIdArgument = new Argument<Guid>("id") { Description = "ノードID（node listで確認）" };
-var nodeDelete = new Command("delete", "ノードを削除する");
+var nodeDelete = new Command("delete", "ノードの登録を削除する（発行済み証明書は失効しない）");
 nodeDelete.Arguments.Add(nodeIdArgument);
 nodeDelete.SetAction((p, ct) => Run(p, async api =>
 {
@@ -185,9 +167,54 @@ nodeDelete.SetAction((p, ct) => Run(p, async api =>
     Console.WriteLine("ノードを削除しました。");
 }));
 node.Subcommands.Add(nodeList);
-node.Subcommands.Add(nodeRegister);
 node.Subcommands.Add(nodeDelete);
 root.Subcommands.Add(node);
+
+var cluster = new Command("cluster", "クラスタ（自己CA・ノード間通信）");
+var clusterStatus = new Command("status", "このノードのクラスタ参加状態を表示する");
+clusterStatus.SetAction((p, ct) => Run(p, async api =>
+{
+    var c = await api.GetClusterAsync(ct);
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(c); return; }
+    Console.WriteLine($"ノード名    : {c.NodeName}（{c.AdvertiseAddress}:{c.ClusterPort}）");
+    if (!c.Joined) { Console.WriteLine("状態        : 未参加（cluster init で初期化、または join で参加）"); return; }
+    Console.WriteLine($"クラスタ    : {c.ClusterName}{(c.IsCa ? "（このノードがCA）" : "")}");
+    Console.WriteLine($"ノードID    : {c.NodeId}");
+    Console.WriteLine($"CA指紋      : {c.CaFingerprint}");
+    Console.WriteLine($"証明書期限  : {Formatting.DateTime(c.CertificateNotAfter)}");
+}));
+cluster.Subcommands.Add(clusterStatus);
+var clusterNameArgument = new Argument<string>("name") { Description = "クラスタ名（英数字・._-）" };
+var clusterInit = new Command("init", "このノードをクラスタCAとして初期化する（クラスタの最初の1台で1回だけ）");
+clusterInit.Arguments.Add(clusterNameArgument);
+clusterInit.SetAction((p, ct) => Run(p, async api =>
+{
+    var c = await api.InitializeClusterAsync(p.GetValue(clusterNameArgument)!, ct);
+    Console.WriteLine($"クラスタ '{c.ClusterName}' を初期化しました。CA指紋: {c.CaFingerprint}");
+}));
+cluster.Subcommands.Add(clusterInit);
+var minutesOption = new Option<int>("--minutes") { Description = "有効期間（分）", DefaultValueFactory = _ => 60 };
+var clusterToken = new Command("token", "ノード参加用のワンタイムトークンを発行する");
+clusterToken.Options.Add(minutesOption);
+clusterToken.SetAction((p, ct) => Run(p, async api =>
+{
+    var t = await api.CreateJoinTokenAsync(p.GetValue(minutesOption), ct);
+    if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(t); return; }
+    Console.Error.WriteLine($"有効期限 {Formatting.DateTime(t.ExpiresAt)}、接続先CA {t.CaUrl}。追加するノードで次を実行してください:");
+    Console.WriteLine($"sudo systemagent join {t.Token}");
+}));
+cluster.Subcommands.Add(clusterToken);
+root.Subcommands.Add(cluster);
+
+var tokenArgument = new Argument<string>("token") { Description = "cluster token で発行した参加トークン" };
+var join = new Command("join", "このノードをクラスタに参加させる（事前に setup と login が必要）");
+join.Arguments.Add(tokenArgument);
+join.SetAction((p, ct) => Run(p, async api =>
+{
+    var c = await api.JoinClusterAsync(p.GetValue(tokenArgument)!, ct);
+    Console.WriteLine($"クラスタ '{c.ClusterName}' に参加しました（ノードID {c.NodeId}）。");
+}));
+root.Subcommands.Add(join);
 
 // --- user ---
 var user = new Command("user", "ユーザー管理（通常認証のDBユーザー）");
@@ -239,7 +266,7 @@ root.Subcommands.Add(user);
 var refreshOption = new Option<bool>("--refresh") { Description = "キャッシュを使わず再検出する" };
 var env = new Command("env", "このノードのOS情報と検出された管理対象ツールを表示する");
 env.Options.Add(refreshOption);
-env.SetAction((p, ct) => Run(p, async api =>
+env.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var e = await api.GetEnvironmentAsync(p.GetValue(refreshOption), ct);
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(e); return; }
@@ -256,7 +283,7 @@ var container = new Command("container", "コンテナ管理（このノード�
 var allOption = new Option<bool>("--all", "-a") { Description = "Podのインフラコンテナも表示する" };
 var containerList = new Command("list", "コンテナを一覧表示する");
 containerList.Options.Add(allOption);
-containerList.SetAction((p, ct) => Run(p, async api =>
+containerList.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var containers = (await api.GetContainersAsync(ct)).Where(c => p.GetValue(allOption) || !c.IsInfra).ToList();
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(containers); return; }
@@ -270,7 +297,7 @@ foreach (var (name, description) in new[] { ("start", "起動する"), ("stop", 
 {
     var command = new Command(name, $"コンテナを{description}");
     command.Arguments.Add(containerIdArgument);
-    command.SetAction((p, ct) => Run(p, async api =>
+    command.SetAction((p, ct) => RunOnNode(p, async api =>
     {
         await api.ContainerActionAsync(p.GetValue(containerIdArgument)!, name, ct);
         Console.WriteLine($"{p.GetValue(containerIdArgument)} を{description[..^2]}しました。");
@@ -279,7 +306,7 @@ foreach (var (name, description) in new[] { ("start", "起動する"), ("stop", 
 }
 var containerRemove = new Command("rm", "コンテナを削除する（停止している必要がある）");
 containerRemove.Arguments.Add(containerIdArgument);
-containerRemove.SetAction((p, ct) => Run(p, async api =>
+containerRemove.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     await api.RemoveContainerAsync(p.GetValue(containerIdArgument)!, ct);
     Console.WriteLine($"{p.GetValue(containerIdArgument)} を削除しました。");
@@ -289,7 +316,7 @@ var tailOption = new Option<int>("--tail", "-n") { Description = "末尾から�
 var containerLogs = new Command("logs", "コンテナのログを表示する");
 containerLogs.Arguments.Add(containerIdArgument);
 containerLogs.Options.Add(tailOption);
-containerLogs.SetAction((p, ct) => Run(p, async api =>
+containerLogs.SetAction((p, ct) => RunOnNode(p, async api =>
     Console.Write((await api.GetContainerLogsAsync(p.GetValue(containerIdArgument)!, p.GetValue(tailOption), ct)).Logs)));
 container.Subcommands.Add(containerLogs);
 root.Subcommands.Add(container);
@@ -297,7 +324,7 @@ root.Subcommands.Add(container);
 // --- pod ---
 var pod = new Command("pod", "Pod管理（Podmanのみ）");
 var podList = new Command("list", "Podを一覧表示する");
-podList.SetAction((p, ct) => Run(p, async api =>
+podList.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var pods = await api.GetPodsAsync(ct);
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(pods); return; }
@@ -311,7 +338,7 @@ root.Subcommands.Add(pod);
 // --- image ---
 var image = new Command("image", "コンテナイメージ管理（このノード）");
 var imageList = new Command("list", "イメージを一覧表示する");
-imageList.SetAction((p, ct) => Run(p, async api =>
+imageList.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var images = await api.GetImagesAsync(ct);
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(images); return; }
@@ -328,7 +355,7 @@ image.Subcommands.Add(imageList);
 var imageArgument = new Argument<string>("image") { Description = "イメージ名（例: registry.local:5000/app:1.0）またはID" };
 var imagePull = new Command("pull", "レジストリからイメージを取得する");
 imagePull.Arguments.Add(imageArgument);
-imagePull.SetAction((p, ct) => Run(p, async api =>
+imagePull.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     Console.Error.WriteLine($"{p.GetValue(imageArgument)} を取得しています...");
     await api.PullImageAsync(p.GetValue(imageArgument)!, ct);
@@ -337,7 +364,7 @@ imagePull.SetAction((p, ct) => Run(p, async api =>
 image.Subcommands.Add(imagePull);
 var imageRemove = new Command("rm", "イメージを削除する");
 imageRemove.Arguments.Add(imageArgument);
-imageRemove.SetAction((p, ct) => Run(p, async api =>
+imageRemove.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     await api.RemoveImageAsync(p.GetValue(imageArgument)!, ct);
     Console.WriteLine($"{p.GetValue(imageArgument)} を削除しました。");
@@ -346,7 +373,7 @@ image.Subcommands.Add(imageRemove);
 var archiveArgument = new Argument<FileInfo>("archive") { Description = "イメージアーカイブ（podman save / docker save で作成したtar）" };
 var imageImport = new Command("import", "イメージアーカイブを取り込む（エアギャップ環境向け）");
 imageImport.Arguments.Add(archiveArgument);
-imageImport.SetAction((p, ct) => Run(p, async api =>
+imageImport.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var archive = p.GetValue(archiveArgument)!;
     if (!archive.Exists) throw new CliException($"ファイルが見つかりません: {archive.FullName}");
@@ -360,7 +387,7 @@ root.Subcommands.Add(image);
 // --- ntp ---
 var ntp = new Command("ntp", "時刻同期（NTP）設定（このノード）");
 var ntpStatus = new Command("status", "同期状態とNTPサーバーを表示する");
-ntpStatus.SetAction((p, ct) => Run(p, async api =>
+ntpStatus.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var n = await api.GetNtpAsync(ct);
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(n); return; }
@@ -382,14 +409,14 @@ ntp.Subcommands.Add(ntpStatus);
 var serversArgument = new Argument<string[]>("servers") { Description = "NTPサーバー（ホスト名またはIPアドレス、複数指定可）", Arity = ArgumentArity.OneOrMore };
 var ntpSet = new Command("set", "参照するNTPサーバーを置き換える（サービスを再起動して反映。失敗時は元に戻す）");
 ntpSet.Arguments.Add(serversArgument);
-ntpSet.SetAction((p, ct) => Run(p, async api =>
+ntpSet.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     await api.SetNtpServersAsync(p.GetValue(serversArgument)!, ct);
     Console.WriteLine($"NTPサーバーを設定しました: {string.Join(", ", p.GetValue(serversArgument)!)}");
 }));
 ntp.Subcommands.Add(ntpSet);
 var ntpSync = new Command("sync", "今すぐ時刻を合わせる");
-ntpSync.SetAction((p, ct) => Run(p, async api =>
+ntpSync.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     await api.SyncNtpAsync(ct);
     Console.WriteLine("時刻同期を実行しました。");
@@ -401,7 +428,7 @@ root.Subcommands.Add(ntp);
 var network = new Command("network", "ホストネットワーク（このノード。現在は参照のみ）");
 var networkShow = new Command("show", "インターフェース・経路・DNSを表示する");
 networkShow.Options.Add(allOption);
-networkShow.SetAction((p, ct) => Run(p, async api =>
+networkShow.SetAction((p, ct) => RunOnNode(p, async api =>
 {
     var n = await api.GetNetworkAsync(ct);
     if (p.GetValue(jsonOption)) { ConsoleUi.WriteJson(n); return; }
@@ -432,6 +459,19 @@ string ResolveUrl(ParseResult p) =>
     ?? tokens.Load()?.Url
     ?? Environment.GetEnvironmentVariable("SYSTEMAGENT_URL")
     ?? DefaultUrl;
+
+Task<int> RunOnNode(ParseResult p, Func<ApiClient, Task> action) => Run(p, async api =>
+{
+    if (p.GetValue(nodeOption) is not { Length: > 0 } target)
+    {
+        await action(api);
+        return;
+    }
+    var nodes = await api.GetNodesAsync();
+    var node = nodes.FirstOrDefault(n => n.Id.ToString() == target || n.HostName == target)
+        ?? throw new CliException($"ノード '{target}' は登録されていません（node list で確認してください）。");
+    await action(api.ForNode(node.Id));
+});
 
 async Task<int> Run(ParseResult p, Func<ApiClient, Task> action)
 {

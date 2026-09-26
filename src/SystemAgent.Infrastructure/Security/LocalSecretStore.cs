@@ -105,6 +105,20 @@ public sealed class LocalSecretStore : ILocalSecretStore
         }
     }
 
+    public string? GetSecret(string name) => _data.Items?.GetValueOrDefault(name);
+
+    public void SetSecret(string name, string? value)
+    {
+        lock (_lock)
+        {
+            var items = new Dictionary<string, string>(_data.Items ?? []);
+            if (value is null) items.Remove(name);
+            else items[name] = value;
+            _data = _data with { Items = items };
+            Save();
+        }
+    }
+
     private string PathOf(string fileName) => Path.Combine(_directory, fileName);
 
     private void EnsureSetupToken()
@@ -171,7 +185,8 @@ public sealed class LocalSecretStore : ILocalSecretStore
         File.Move(tmp, path, overwrite: true);
     }
 
-    private sealed record SecretData(string JwtSigningKey, List<EmergencyUser> EmergencyUsers);
+    /// <param name="Items">名前付きの秘密情報。以前の形式のファイルには無いためnull許容。</param>
+    private sealed record SecretData(string JwtSigningKey, List<EmergencyUser> EmergencyUsers, Dictionary<string, string>? Items = null);
 
     private sealed record EmergencyUser(string UserName, string PasswordHash);
 }

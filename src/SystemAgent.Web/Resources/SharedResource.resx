@@ -44,18 +44,38 @@
   <data name="Dashboard_DbDown" xml:space="preserve"><value>接続不可</value></data>
   <data name="Dashboard_NodeCount" xml:space="preserve"><value>登録ノード数</value></data>
 
-  <data name="Nodes_Title" xml:space="preserve"><value>ノード管理</value></data>
+  <data name="Nodes_Title" xml:space="preserve"><value>ノード・クラスタ</value></data>
+  <data name="Nodes_List" xml:space="preserve"><value>登録ノード</value></data>
+  <data name="Nodes_Address" xml:space="preserve"><value>接続先（ノード間通信）</value></data>
+  <data name="Nodes_Reachability" xml:space="preserve"><value>疎通</value></data>
+  <data name="Nodes_Reachable" xml:space="preserve"><value>接続可</value></data>
+  <data name="Nodes_Unreachable" xml:space="preserve"><value>接続不可</value></data>
+  <data name="Nodes_Self" xml:space="preserve"><value>このノード</value></data>
+  <data name="Cluster_NotJoined" xml:space="preserve"><value>このノードはまだクラスタに参加していません。最初の1台ではクラスタを初期化し、2台目以降は参加トークンで参加してください。</value></data>
+  <data name="Cluster_InitTitle" xml:space="preserve"><value>クラスタを初期化（最初の1台）</value></data>
+  <data name="Cluster_InitHint" xml:space="preserve"><value>このノードに自己CAを作成し、クラスタの最初のノードとして登録します。CAの秘密鍵はこのノードに暗号化して保存されます。</value></data>
+  <data name="Cluster_Name" xml:space="preserve"><value>クラスタ名</value></data>
+  <data name="Cluster_Init" xml:space="preserve"><value>初期化</value></data>
+  <data name="Cluster_Initialized" xml:space="preserve"><value>クラスタを初期化しました。</value></data>
+  <data name="Cluster_JoinTitle" xml:space="preserve"><value>既存のクラスタに参加</value></data>
+  <data name="Cluster_JoinHint" xml:space="preserve"><value>クラスタ内のノードで発行した参加トークンを貼り付けてください。</value></data>
+  <data name="Cluster_Token" xml:space="preserve"><value>参加トークン</value></data>
+  <data name="Cluster_Join" xml:space="preserve"><value>参加</value></data>
+  <data name="Cluster_Joined" xml:space="preserve"><value>クラスタに参加しました。</value></data>
+  <data name="Cluster_ThisNode" xml:space="preserve"><value>このノード</value></data>
+  <data name="Cluster_CaFingerprint" xml:space="preserve"><value>CA証明書の指紋（SHA-256）</value></data>
+  <data name="Cluster_CertExpiry" xml:space="preserve"><value>証明書の有効期限</value></data>
+  <data name="Cluster_AddNode" xml:space="preserve"><value>ノードの追加</value></data>
+  <data name="Cluster_AddNodeHint" xml:space="preserve"><value>参加トークン（1回限り・60分有効）を発行し、追加するノード上で表示されたコマンドを実行するか、そのノードのWebUIで貼り付けてください。</value></data>
+  <data name="Cluster_CreateToken" xml:space="preserve"><value>参加トークンを発行</value></data>
+  <data name="Cluster_TokenExpires" xml:space="preserve"><value>有効期限</value></data>
+  <data name="Cluster_CaUrl" xml:space="preserve"><value>接続先CA</value></data>
+  <data name="Cluster_TokenNote" xml:space="preserve"><value>トークンにはCA証明書の指紋が含まれており、参加時の接続先がこのクラスタのCAであることを検証します。トークンは他人に渡さないでください。</value></data>
+  <data name="NodeSelector_Label" xml:space="preserve"><value>操作対象ノード</value></data>
+  <data name="NodeSelector_Self" xml:space="preserve"><value>このノード</value></data>
+  <data name="NodeSelector_Remote" xml:space="preserve"><value>他ノードを操作中</value></data>
   <data name="Nodes_HostName" xml:space="preserve"><value>ホスト名</value></data>
-  <data name="Nodes_IpAddress" xml:space="preserve"><value>IPアドレス</value></data>
   <data name="Nodes_Os" xml:space="preserve"><value>OS</value></data>
-  <data name="Nodes_Distribution" xml:space="preserve"><value>ディストリビューション</value></data>
-  <data name="Nodes_Version" xml:space="preserve"><value>バージョン</value></data>
-  <data name="Nodes_Architecture" xml:space="preserve"><value>アーキテクチャ</value></data>
-  <data name="Nodes_Role" xml:space="preserve"><value>役割</value></data>
-  <data name="Nodes_RegisteredAt" xml:space="preserve"><value>登録日時</value></data>
-  <data name="Nodes_Register" xml:space="preserve"><value>ノード登録</value></data>
-  <data name="Nodes_Empty" xml:space="preserve"><value>登録済みのノードはありません。</value></data>
-  <data name="Nodes_Duplicate" xml:space="preserve"><value>同じホスト名のノードが既に登録されています。</value></data>
   <data name="Role_Master" xml:space="preserve"><value>マスター</value></data>
   <data name="Role_Replica" xml:space="preserve"><value>レプリカ</value></data>
   <data name="Role_Managed" xml:space="preserve"><value>管理対象</value></data>

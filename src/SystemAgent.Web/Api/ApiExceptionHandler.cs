@@ -2,6 +2,7 @@ using System.Data.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.CapabilityProviders;
+using SystemAgent.Infrastructure.Cluster;
 
 namespace SystemAgent.Web.Api;
 
@@ -28,6 +29,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
                 (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),
             CommandFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
             CapabilityUnavailableException ex => (StatusCodes.Status501NotImplemented, ex.Message),
+            ClusterStateException ex => (StatusCodes.Status409Conflict, ex.Message),
+            UnauthorizedAccessException ex => (StatusCodes.Status403Forbidden, ex.Message),
             ArgumentException ex => (StatusCodes.Status400BadRequest, ex.Message),
             TimeoutException ex => (StatusCodes.Status504GatewayTimeout, ex.Message),
             _ => (StatusCodes.Status500InternalServerError, "サーバー内部でエラーが発生しました。"),

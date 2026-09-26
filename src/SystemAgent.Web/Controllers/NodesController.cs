@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
-using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Nodes;
 
 namespace SystemAgent.Web.Controllers;
 
+/// <summary>
+/// 登録済みノード。登録はクラスタ参加（/api/cluster）で行う。削除しても発行済み証明書は失効しない（ADR-012）。
+/// </summary>
 [ApiController]
 [Authorize]
 [Route("api/nodes")]
@@ -17,17 +19,6 @@ public class NodesController(INodeService nodes, IAuditLogger audit) : Controlle
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<NodeInfo>> Get(Guid id, CancellationToken cancellationToken) =>
         await nodes.GetAsync(id, cancellationToken) is { } node ? node : NotFound();
-
-    [HttpPost]
-    public async Task<ActionResult<NodeInfo>> Register(RegisterNodeRequest request, CancellationToken cancellationToken)
-    {
-        var node = await nodes.RegisterAsync(
-            new NodeRegistration(request.HostName, request.IpAddress, request.Os, request.Role), cancellationToken);
-        if (node is null) return Conflict();
-
-        await audit.LogAsync(User.Identity!.Name!, "node.register", $"{node.HostName} ({node.Id})", cancellationToken);
-        return CreatedAtAction(nameof(Get), new { id = node.Id }, node);
-    }
 
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)

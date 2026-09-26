@@ -9,6 +9,7 @@ using SystemAgent.Core.Security;
 using SystemAgent.Core.Users;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
+using SystemAgent.Infrastructure.Cluster;
 using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.CapabilityProviders.Network;
@@ -56,6 +57,12 @@ public static class DependencyInjection
             Path.Combine(AppContext.BaseDirectory, "CommandTemplates"),
             configuration["CommandTemplates:ExtraPath"] ?? DefaultExtraTemplatePath,
             sp.GetRequiredService<ILogger<CommandTemplateStore>>()));
+        // クラスタ（自己CA・mTLS・ノード参加。ADR-018）
+        services.AddSingleton<ClusterIdentity>();
+        services.AddSingleton<ClusterEndpointSettings>();
+        services.AddSingleton<ClusterHttpClientFactory>();
+        services.AddScoped<ClusterService>();
+
         services.AddSingleton<CapabilityTemplateResolver>();
         services.AddSingleton<ContainerRuntimeResolver>();
         services.AddSingleton<NtpResolver>();

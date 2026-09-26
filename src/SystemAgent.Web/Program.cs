@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
 using SystemAgent.Client;
 using SystemAgent.Core.Security;
@@ -10,6 +12,8 @@ using SystemAgent.Web.Client;
 using SystemAgent.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.WebHost.ConfigureKestrel((context, kestrel) => KestrelEndpoints.Configure(kestrel, context.Configuration));
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -24,14 +28,20 @@ builder.Services.AddOpenApi();
 builder.Services.AddInfrastructure(builder.Configuration, builder.Environment.ContentRootPath);
 
 builder.Services.AddSingleton<JwtTokenIssuer>();
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer();
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer()
+    .AddScheme<AuthenticationSchemeOptions, NodeCertificateAuthenticationHandler>(NodeCertificateAuthenticationHandler.SchemeName, null);
 builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
     .Configure<ILocalSecretStore>((options, secrets) =>
     {
         options.MapInboundClaims = false;
         options.TokenValidationParameters = JwtTokenIssuer.CreateValidationParameters(secrets);
     });
-builder.Services.AddAuthorization();
+// 利用者（JWT）と、他ノードから転送された操作（ノード証明書 + 操作者ヘッダ）のどちらでも認可する
+builder.Services.AddAuthorization(options => options.DefaultPolicy = new AuthorizationPolicyBuilder(
+        JwtBearerDefaults.AuthenticationScheme, NodeCertificateAuthenticationHandler.SchemeName)
+    .RequireAuthenticatedUser()
+    .Build());
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -40,6 +50,7 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<TokenStore>();
+builder.Services.AddScoped<NodeSelection>();
 builder.Services.AddScoped<ITokenProvider>(sp => sp.GetRequiredService<TokenStore>());
 builder.Services.AddScoped<ApiAuthenticationStateProvider>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<ApiAuthenticationStateProvider>());

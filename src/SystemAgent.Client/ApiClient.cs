@@ -25,6 +25,13 @@ public interface ITokenProvider
 /// </summary>
 public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
 {
+    // ForNodeで作ったクライアントは、api/... を api/nodes/{id}/proxy/api/... に読み替えて他ノードに転送させる
+    private string? _nodePrefix;
+
+    /// <summary>指定ノード（nullならこのノード）を操作するクライアント。ログイン等の認証APIはこのノードで行う。</summary>
+    public ApiClient ForNode(Guid? nodeId) =>
+        nodeId is null ? this : new ApiClient(http, tokens) { _nodePrefix = $"api/nodes/{nodeId}/proxy/" };
+
     /// <summary>イメージのpull/取り込み（テンプレート上の上限30分）を待てるHttpClientのタイムアウト。</summary>
     public static readonly TimeSpan HttpTimeout = TimeSpan.FromMinutes(35);
 
@@ -52,9 +59,6 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task<List<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<NodeInfo>>(HttpMethod.Get, "api/nodes", null, authorize: true, cancellationToken);
 
-    public Task<NodeInfo> RegisterNodeAsync(RegisterNodeRequest request, CancellationToken cancellationToken = default) =>
-        SendAsync<NodeInfo>(HttpMethod.Post, "api/nodes", request, authorize: true, cancellationToken);
-
     public Task DeleteNodeAsync(Guid id, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/nodes/{id}", null, authorize: true, cancellationToken);
 
@@ -66,6 +70,18 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
 
     public Task DeleteUserAsync(string userName, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/users/{Uri.EscapeDataString(userName)}", null, authorize: true, cancellationToken);
+
+    public Task<ClusterStatusResponse> GetClusterAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<ClusterStatusResponse>(HttpMethod.Get, "api/cluster", null, authorize: true, cancellationToken);
+
+    public Task<ClusterStatusResponse> InitializeClusterAsync(string clusterName, CancellationToken cancellationToken = default) =>
+        SendAsync<ClusterStatusResponse>(HttpMethod.Post, "api/cluster/init", new InitializeClusterRequest(clusterName), authorize: true, cancellationToken);
+
+    public Task<JoinTokenResponse> CreateJoinTokenAsync(int validMinutes, CancellationToken cancellationToken = default) =>
+        SendAsync<JoinTokenResponse>(HttpMethod.Post, "api/cluster/tokens", new CreateJoinTokenRequest(validMinutes), authorize: true, cancellationToken);
+
+    public Task<ClusterStatusResponse> JoinClusterAsync(string token, CancellationToken cancellationToken = default) =>
+        SendAsync<ClusterStatusResponse>(HttpMethod.Post, "api/cluster/join", new JoinClusterRequest(token), authorize: true, cancellationToken);
 
     public Task<HostEnvironment> GetEnvironmentAsync(bool refresh = false, CancellationToken cancellationToken = default) =>
         SendAsync<HostEnvironment>(HttpMethod.Get, $"api/system/environment?refresh={refresh}", null, authorize: true, cancellationToken);
@@ -140,6 +156,7 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     private async Task<HttpResponseMessage> SendCoreAsync(
         HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken)
     {
+        if (_nodePrefix is not null && path.StartsWith("api/", StringComparison.Ordinal)) path = _nodePrefix + path;
         using var request = new HttpRequestMessage(method, path);
         request.Content = body switch
         {

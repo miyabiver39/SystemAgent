@@ -94,6 +94,19 @@ public sealed class LocalSecretStoreTests : IDisposable
     }
 
     [Fact]
+    public void NamedSecrets_PersistEncrypted_AndCanBeDeleted()
+    {
+        Open().SetSecret("pki.node.key", "-----BEGIN PRIVATE KEY-----secret-----END PRIVATE KEY-----");
+
+        var reopened = Open();
+        Assert.Equal("-----BEGIN PRIVATE KEY-----secret-----END PRIVATE KEY-----", reopened.GetSecret("pki.node.key"));
+        Assert.DoesNotContain("PRIVATE KEY", File.ReadAllText(Path.Combine(_dir, LocalSecretStore.SecretsFileName)));
+
+        reopened.SetSecret("pki.node.key", null);
+        Assert.Null(Open().GetSecret("pki.node.key"));
+    }
+
+    [Fact]
     public void ChangePassword_UnknownUser_ReturnsFalse()
     {
         Assert.False(OpenAndSetUp().ChangeEmergencyPassword("nobody", "whatever-password"));

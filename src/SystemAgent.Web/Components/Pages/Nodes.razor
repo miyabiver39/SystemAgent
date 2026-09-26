@@ -9,113 +9,190 @@
 {
     <p class="notice error">@_error</p>
 }
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
 
-@if (_nodes is null)
+@if (_cluster is null)
 {
-    @if (_error is null)
-    {
-        <p class="muted">@L["Common_Loading"]</p>
-    }
+    <p class="muted">@L["Common_Loading"]</p>
+    return;
 }
-else if (_nodes.Count == 0)
+
+@if (!_cluster.Joined)
 {
-    <p class="muted">@L["Nodes_Empty"]</p>
-}
-else
-{
-    <table>
-        <thead>
-            <tr>
-                <th>@L["Nodes_HostName"]</th>
-                <th>@L["Nodes_IpAddress"]</th>
-                <th>@L["Nodes_Os"]</th>
-                <th>@L["Nodes_Role"]</th>
-                <th>@L["Nodes_RegisteredAt"]</th>
-                <th></th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var node in _nodes)
-            {
-                <tr @key="node.Id">
-                    <td>@node.HostName</td>
-                    <td>@node.IpAddress</td>
-                    <td>@node.Os.Distribution @node.Os.Version (@node.Os.Architecture)</td>
-                    <td>@L["Role_" + node.Role]</td>
-                    <td>@node.RegisteredAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</td>
-                    <td><ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteAsync(node)" /></td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    <p class="notice warn">@L["Cluster_NotJoined"]</p>
+    <div class="tiles">
+        <section class="card">
+            <h2>@L["Cluster_InitTitle"]</h2>
+            <p class="hint">@L["Cluster_InitHint"]</p>
+            <EditForm Model="_init" OnSubmit="InitializeAsync" FormName="cluster-init">
+                <label>@L["Cluster_Name"]<InputText @bind-Value="_init.ClusterName" placeholder="site-a" /></label>
+                <div class="form-actions"><button type="submit" class="primary" disabled="@_busy">@L["Cluster_Init"]</button></div>
+            </EditForm>
+        </section>
+        <section class="card">
+            <h2>@L["Cluster_JoinTitle"]</h2>
+            <p class="hint">@L["Cluster_JoinHint"]</p>
+            <EditForm Model="_join" OnSubmit="JoinAsync" FormName="cluster-join">
+                <label>@L["Cluster_Token"]<InputTextArea @bind-Value="_join.Token" rows="3" class="mono" /></label>
+                <div class="form-actions"><button type="submit" class="primary" disabled="@_busy">@L["Cluster_Join"]</button></div>
+            </EditForm>
+        </section>
+    </div>
+    <p class="hint">@L["Cluster_ThisNode"]: @_cluster.NodeName（@_cluster.AdvertiseAddress:@_cluster.ClusterPort）</p>
+    return;
 }
 
 <section class="card">
-    <h2>@L["Nodes_Register"]</h2>
-    <EditForm Model="_form" OnSubmit="RegisterAsync" FormName="register-node" class="grid-form">
-        <label>@L["Nodes_HostName"]<InputText @bind-Value="_form.HostName" /></label>
-        <label>@L["Nodes_IpAddress"]<InputText @bind-Value="_form.IpAddress" /></label>
-        <label>@L["Nodes_Distribution"]<InputText @bind-Value="_form.Distribution" placeholder="almalinux" /></label>
-        <label>@L["Nodes_Version"]<InputText @bind-Value="_form.Version" placeholder="9.8" /></label>
-        <label>@L["Nodes_Architecture"]<InputText @bind-Value="_form.Architecture" /></label>
-        <label>
-            @L["Nodes_Role"]
-            <InputSelect @bind-Value="_form.Role">
-                @foreach (var role in Enum.GetValues<NodeRole>())
+    <dl>
+        <dt>@L["Cluster_Name"]</dt><dd>@_cluster.ClusterName</dd>
+        <dt>@L["Cluster_ThisNode"]</dt><dd>@_cluster.NodeName（@_cluster.AdvertiseAddress:@_cluster.ClusterPort）@if (_cluster.IsCa) { <span class="badge db">CA</span> }</dd>
+        <dt>@L["Cluster_CaFingerprint"]</dt><dd class="mono">@_cluster.CaFingerprint</dd>
+        <dt>@L["Cluster_CertExpiry"]</dt><dd>@Formatting.DateTime(_cluster.CertificateNotAfter)</dd>
+    </dl>
+</section>
+
+<section>
+    <div class="section-header">
+        <h2>@L["Nodes_List"]</h2>
+        <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+    </div>
+    @if (_nodes is { Count: > 0 })
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>@L["Nodes_HostName"]</th><th>@L["Nodes_Address"]</th><th>@L["Nodes_Os"]</th>
+                    <th>@L["Nodes_Reachability"]</th><th>@L["Cluster_CertExpiry"]</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var node in _nodes)
                 {
-                    <option value="@role">@L["Role_" + role]</option>
+                    <tr @key="node.Id">
+                        <td>@node.HostName @if (node.Id == _cluster.NodeId) { <span class="badge db">@L["Nodes_Self"]</span> }</td>
+                        <td class="mono">@node.IpAddress:@node.ClusterPort</td>
+                        <td>@node.Os.Distribution @node.Os.Version (@node.Os.Architecture)</td>
+                        <td>
+                            @if (!_reachability.TryGetValue(node.Id, out var reachable))
+                            {
+                                <span class="muted">-</span>
+                            }
+                            else if (reachable)
+                            {
+                                <span class="badge state-running">@L["Nodes_Reachable"]</span>
+                            }
+                            else
+                            {
+                                <span class="badge state-exited" title="@_reachabilityErrors.GetValueOrDefault(node.Id)">@L["Nodes_Unreachable"]</span>
+                            }
+                        </td>
+                        <td>@Formatting.DateTime(node.CertificateNotAfter)</td>
+                        <td>
+                            @if (node.Id != _cluster.NodeId)
+                            {
+                                <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteAsync(node)" />
+                            }
+                        </td>
+                    </tr>
                 }
-            </InputSelect>
-        </label>
-        <div class="form-actions">
-            <button type="submit" class="primary" disabled="@_busy">@L["Nodes_Register"]</button>
-        </div>
-    </EditForm>
+            </tbody>
+        </table>
+    }
+</section>
+
+<section class="card">
+    <h2>@L["Cluster_AddNode"]</h2>
+    <p class="hint">@L["Cluster_AddNodeHint"]</p>
+    <button type="button" class="primary" disabled="@_busy" @onclick="CreateTokenAsync">@L["Cluster_CreateToken"]</button>
+    @if (_token is not null)
+    {
+        <p class="hint">@L["Cluster_TokenExpires"]: @Formatting.DateTime(_token.ExpiresAt) / @L["Cluster_CaUrl"]: @_token.CaUrl</p>
+        <pre class="token">sudo systemagent join @_token.Token</pre>
+        <p class="hint">@L["Cluster_TokenNote"]</p>
+    }
 </section>
 
 @code {
+    private ClusterStatusResponse? _cluster;
     private List<NodeInfo>? _nodes;
-    private NodeForm _form = new();
-    private bool _busy;
+    private readonly Dictionary<Guid, bool> _reachability = [];
+    private readonly Dictionary<Guid, string> _reachabilityErrors = [];
+    private JoinTokenResponse? _token;
     private string? _error;
+    private string? _message;
+    private bool _busy;
+    private readonly InitForm _init = new();
+    private readonly JoinForm _join = new();
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
+        _error = null;
         try
         {
+            _cluster = await Api.GetClusterAsync();
+            if (!_cluster.Joined) return;
             _nodes = await Api.GetNodesAsync();
         }
         catch (ApiException ex)
         {
             _error = ex.Message;
-        }
-    }
-
-    private async Task RegisterAsync()
-    {
-        if (new[] { _form.HostName, _form.IpAddress, _form.Distribution, _form.Version, _form.Architecture }
-            .Any(string.IsNullOrWhiteSpace))
-        {
-            _error = L["Common_RequiredAll"];
             return;
         }
 
+        // 各ノードへの疎通（このノード経由のmTLS）を並行して確認する
+        _reachability.Clear();
+        _reachabilityErrors.Clear();
+        await Task.WhenAll(_nodes.Select(async node =>
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await Api.ForNode(node.Id).GetHealthAsync(cts.Token);
+                _reachability[node.Id] = true;
+            }
+            catch (Exception ex) when (ex is ApiException or OperationCanceledException or HttpRequestException)
+            {
+                _reachability[node.Id] = false;
+                _reachabilityErrors[node.Id] = ex.Message;
+            }
+        }));
+    }
+
+    private Task InitializeAsync() => RunAsync(async () =>
+    {
+        _cluster = await Api.InitializeClusterAsync(_init.ClusterName.Trim());
+        _message = L["Cluster_Initialized"];
+        await LoadAsync();
+    });
+
+    private Task JoinAsync() => RunAsync(async () =>
+    {
+        _cluster = await Api.JoinClusterAsync(_join.Token.Trim());
+        _message = L["Cluster_Joined"];
+        await LoadAsync();
+    });
+
+    private Task CreateTokenAsync() => RunAsync(async () => _token = await Api.CreateJoinTokenAsync(60));
+
+    private Task DeleteAsync(NodeInfo node) => RunAsync(async () =>
+    {
+        await Api.DeleteNodeAsync(node.Id);
+        await LoadAsync();
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
         _busy = true;
         _error = null;
+        _message = null;
         try
         {
-            await Api.RegisterNodeAsync(new RegisterNodeRequest(
-                _form.HostName.Trim(), _form.IpAddress.Trim(),
-                new OsInfo(_form.Distribution.Trim(), _form.Version.Trim(), _form.Architecture.Trim()),
-                _form.Role));
-            _form = new NodeForm();
-            await LoadAsync();
-        }
-        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.Conflict)
-        {
-            _error = L["Nodes_Duplicate"];
+            await action();
         }
         catch (ApiException ex)
         {
@@ -127,27 +204,13 @@ else
         }
     }
 
-    private async Task DeleteAsync(NodeInfo node)
+    private sealed class InitForm
     {
-        _error = null;
-        try
-        {
-            await Api.DeleteNodeAsync(node.Id);
-            await LoadAsync();
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
+        public string ClusterName { get; set; } = "";
     }
 
-    private sealed class NodeForm
+    private sealed class JoinForm
     {
-        public string HostName { get; set; } = "";
-        public string IpAddress { get; set; } = "";
-        public string Distribution { get; set; } = "";
-        public string Version { get; set; } = "";
-        public string Architecture { get; set; } = "x86_64";
-        public NodeRole Role { get; set; } = NodeRole.Managed;
+        public string Token { get; set; } = "";
     }
 }

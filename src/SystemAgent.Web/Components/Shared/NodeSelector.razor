@@ -1,0 +1,48 @@
+@* 操作対象ノードの切り替え。クラスタ参加済みで他のノードがある場合だけ表示する。 *@
+@inject ApiClient Api
+@inject NodeSelection Selection
+
+@if (_others.Count > 0)
+{
+    <div class="node-selector">
+        <label for="node-select">@L["NodeSelector_Label"]</label>
+        <select id="node-select" value="@(Selection.NodeId?.ToString() ?? "")" @onchange="ChangeAsync">
+            <option value="">@L["NodeSelector_Self"]（@_selfName）</option>
+            @foreach (var node in _others)
+            {
+                <option value="@node.Id">@node.HostName（@node.IpAddress）</option>
+            }
+        </select>
+        @if (Selection.NodeId is not null)
+        {
+            <span class="badge local">@L["NodeSelector_Remote"]</span>
+        }
+    </div>
+}
+
+@code {
+    private List<NodeInfo> _others = [];
+    private string _selfName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var cluster = await Api.GetClusterAsync();
+            _selfName = cluster.NodeName;
+            if (!cluster.Joined) return;
+            _others = (await Api.GetNodesAsync()).Where(n => n.Id != cluster.NodeId).ToList();
+        }
+        catch (ApiException)
+        {
+            // DB停止中などはノード一覧を取れないため、このノードのみ操作できる
+            _others = [];
+        }
+    }
+
+    private async Task ChangeAsync(ChangeEventArgs e)
+    {
+        var id = Guid.TryParse(e.Value?.ToString(), out var parsed) ? parsed : (Guid?)null;
+        await Selection.SelectAsync(id, _others.FirstOrDefault(n => n.Id == id)?.HostName);
+    }
+}
