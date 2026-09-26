@@ -1,0 +1,113 @@
+@page "/network"
+@using SystemAgent.Core.CapabilityProviders
+@inject ApiClient Api
+
+<PageTitle>@L["Network_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Network_Title"]</h1>
+<p class="hint">@L["Network_ReadOnly"]</p>
+
+@if (_unavailable is not null)
+{
+    <p class="notice warn">@L["Network_Unavailable"] @_unavailable</p>
+    return;
+}
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+
+@if (_status is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+}
+else
+{
+    <section>
+        <div class="section-header">
+            <h2>@L["Network_Interfaces"]</h2>
+            <label class="checkbox"><input type="checkbox" @bind="_showAll" /> @L["Network_ShowAll"]</label>
+            <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>@L["Containers_Name"]</th><th>@L["Network_Kind"]</th><th>@L["Containers_State"]</th>
+                    <th>MTU</th><th>MAC</th><th>@L["Network_Addresses"]</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var i in _status.Interfaces.Where(i => _showAll || (!i.ContainerNetwork && i.Kind != InterfaceKind.Loopback)))
+                {
+                    <tr @key="i.Name">
+                        <td>@i.Name @if (i.Master is not null) { <div class="hint">@i.Master</div> }</td>
+                        <td>@L["IfKind_" + i.Kind]@(i.ContainerNetwork ? L["Network_ContainerSuffix"] : "")</td>
+                        <td><span class="badge @(i.State == "UP" ? "state-running" : "state-created")">@i.State</span></td>
+                        <td>@i.Mtu</td>
+                        <td class="mono">@i.MacAddress</td>
+                        <td class="mono">
+                            @foreach (var a in i.Addresses.Where(a => _showAll || !a.Address.StartsWith("fe80")))
+                            {
+                                <div>@a@(a.Dynamic ? " (DHCP)" : "")</div>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section>
+        <h2>@L["Network_Routes"]</h2>
+        <table>
+            <thead>
+                <tr><th>@L["Network_Destination"]</th><th>@L["Network_Gateway"]</th><th>@L["Network_Device"]</th><th>@L["Network_Protocol"]</th></tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _status.Routes.Where(r => _showAll || (!r.Destination.StartsWith("fe80") && !HiddenInterfaces.Contains(r.Device ?? ""))))
+                {
+                    <tr><td class="mono">@r.Destination</td><td class="mono">@r.Gateway</td><td>@r.Device</td><td>@r.Protocol</td></tr>
+                }
+            </tbody>
+        </table>
+    </section>
+
+    <section class="card">
+        <h2>DNS</h2>
+        <dl>
+            <dt>@L["Network_DnsServers"]</dt>
+            <dd class="mono">@(_status.DnsServers.Count == 0 ? "-" : string.Join(", ", _status.DnsServers))</dd>
+            <dt>@L["Network_SearchDomains"]</dt>
+            <dd class="mono">@(_status.SearchDomains.Count == 0 ? "-" : string.Join(", ", _status.SearchDomains))</dd>
+        </dl>
+    </section>
+}
+
+@code {
+    private NetworkStatus? _status;
+    private string? _unavailable;
+    private string? _error;
+    private bool _showAll;
+
+    private HashSet<string> HiddenInterfaces => _status!.Interfaces
+        .Where(i => i.ContainerNetwork || i.Kind == InterfaceKind.Loopback).Select(i => i.Name).ToHashSet();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _error = null;
+        try
+        {
+            _status = await Api.GetNetworkAsync();
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotImplemented)
+        {
+            _unavailable = ex.Message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

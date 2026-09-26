@@ -11,6 +11,7 @@ using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
 using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
+using SystemAgent.Infrastructure.CapabilityProviders.Network;
 using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;
@@ -55,8 +56,10 @@ public static class DependencyInjection
             Path.Combine(AppContext.BaseDirectory, "CommandTemplates"),
             configuration["CommandTemplates:ExtraPath"] ?? DefaultExtraTemplatePath,
             sp.GetRequiredService<ILogger<CommandTemplateStore>>()));
+        services.AddSingleton<CapabilityTemplateResolver>();
         services.AddSingleton<ContainerRuntimeResolver>();
         services.AddSingleton<NtpResolver>();
+        services.AddSingleton<NetworkResolver>();
         services.AddScoped<INodeService, NodeService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuditLogger, DbAuditLogger>();

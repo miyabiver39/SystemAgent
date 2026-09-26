@@ -81,6 +81,7 @@ systemagent container list|start|stop|restart|rm|logs
 systemagent pod list                 # Podmanのみ
 systemagent image list|pull|rm|import <tar>
 systemagent ntp status|set <server>...|sync
+systemagent network show [--all]
 ```
 
 接続先は`--url` → ログイン時のURL → 環境変数`SYSTEMAGENT_URL` → `http://localhost:5000`の順に決まる。`--json`で結果をJSON出力する。ログイン状態は`~/.config/systemagent/session.json`（600）に保存される。開発時は`dotnet run --project src/SystemAgent.Cli -- --url http://localhost:5246 status`のように実行する。
@@ -119,4 +120,4 @@ dotnet ef database update --project src/SystemAgent.Infrastructure --startup-pro
 
 [ADR-013](docs/adr/0013-mvp-implementation-order.md)の①「基盤」を実装済み: 永続化、認証（通常JWT + ローカル緊急認証 + 初期セットアップ）、ユーザー管理、ノード管理（手動登録）、監査ログ、WebUI、CLI。
 ②コンテナ管理を実装済み: コンテナ一覧/起動/停止/再起動/削除/ログ、Pod一覧、イメージ一覧/pull/削除/アーカイブ取り込み、環境検出（Podman 5.8・4.9、Docker 29.1で検証）。
-③のうちNTP設定を実装済み: 同期状態・時刻ソースの表示、NTPサーバーの設定（失敗時は自動で元に戻す）、即時同期（chrony: RHEL系/Debian系、systemd-timesyncdに対応）。次は③ネットワーク設定。
+③のうちNTP設定を実装済み: 同期状態・時刻ソースの表示、NTPサーバーの設定（失敗時は自動で元に戻す）、即時同期（chrony: RHEL系/Debian系、systemd-timesyncdに対応）。ネットワークは参照（インターフェース・経路・DNS）まで実装済みで、設定変更は[QA 0005](docs/qa/questions/0005-network-settings.md)の回答待ち。次は④マルチノード通信（自己CA・mTLS・ノード登録）。

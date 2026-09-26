@@ -1,0 +1,1 @@
+[{"dst":"fe80::/64","dev":"eth0","protocol":"kernel","metric":256,"flags":[],"pref":"medium"},{"dst":"fe80::/64","dev":"podman0","protocol":"kernel","metric":256,"flags":["linkdown"],"pref":"medium"},{"dst":"fe80::/64","dev":"docker0","protocol":"kernel","metric":256,"flags":["linkdown"],"pref":"medium"}]

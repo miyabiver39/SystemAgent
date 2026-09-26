@@ -1,4 +1,5 @@
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
+using SystemAgent.Infrastructure.CapabilityProviders.Network;
 using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Templates;
@@ -54,6 +55,18 @@ public static class TemplateRequirements
                     ["configFile"] = new(),
                     ["configStyle"] = new(NtpConfigWriters.ByStyle.Keys),
                     ["service"] = new(),
+                }),
+
+            ["network"] = new(
+                Commands: new Dictionary<string, CommandRequirement>
+                {
+                    ["listInterfaces"] = new(true, [], NetworkOutputParsers.Interfaces.Keys),
+                    ["listRoutes"] = new(true, [], NetworkOutputParsers.Routes.Keys),
+                    ["listRoutes6"] = new(false, [], NetworkOutputParsers.Routes.Keys),
+                },
+                Settings: new Dictionary<string, SettingRequirement>
+                {
+                    ["resolvConf"] = new(),
                 }),
         };
 

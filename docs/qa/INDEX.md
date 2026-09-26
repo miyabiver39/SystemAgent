@@ -8,3 +8,4 @@
 | 0002 | 開発・検証環境（WSL2案）の確認 | クローズ（ADR-014に反映済み） | 2026-09-26 | [questions/0002-dev-test-environment.md](questions/0002-dev-test-environment.md) | [answers/0002-dev-test-environment.md](answers/0002-dev-test-environment.md) |
 | 0003 | 認証まわりの運用方針 | クローズ（ADR-015に反映済み） | 2026-09-26 | [questions/0003-auth-policy.md](questions/0003-auth-policy.md) | [answers/0003-auth-policy.md](answers/0003-auth-policy.md) |
 | 0004 | 実行ユーザーとコンテナの実行形態 | クローズ（ADR-017に反映済み） | 2026-09-26 | [questions/0004-execution-user.md](questions/0004-execution-user.md) | [answers/0004-execution-user.md](answers/0004-execution-user.md) |
+| 0005 | ネットワーク設定変更の範囲と安全策（回答待ちの間は実装保留） | 未回答 | 2026-09-26 | [questions/0005-network-settings.md](questions/0005-network-settings.md) | [answers/0005-network-settings.md](answers/0005-network-settings.md) |

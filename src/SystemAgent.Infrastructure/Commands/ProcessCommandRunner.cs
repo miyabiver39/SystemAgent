@@ -21,7 +21,7 @@ public sealed class ProcessCommandRunner(IConfiguration configuration, ILogger<P
         string executable, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         var useSudo = configuration.GetValue("CommandExecution:UseSudo", false);
-        var startInfo = new ProcessStartInfo(useSudo ? "sudo" : executable)
+        var startInfo = new ProcessStartInfo(Resolve(useSudo ? "sudo" : executable))
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
@@ -34,6 +34,7 @@ public sealed class ProcessCommandRunner(IConfiguration configuration, ILogger<P
             startInfo.ArgumentList.Add(executable);
         }
         foreach (var argument in arguments) startInfo.ArgumentList.Add(argument);
+        if (!OperatingSystem.IsWindows()) startInfo.Environment["PATH"] = WithSystemPaths(startInfo.Environment["PATH"]);
 
         logger.LogDebug("コマンド実行: {Executable} {Arguments}", startInfo.FileName, string.Join(' ', startInfo.ArgumentList));
 
@@ -64,5 +65,24 @@ public sealed class ProcessCommandRunner(IConfiguration configuration, ILogger<P
             if (cancellationToken.IsCancellationRequested) throw;
             throw new TimeoutException($"{executable} が {timeout.TotalSeconds:0} 秒以内に終了しませんでした。");
         }
+    }
+
+    // ip, keepalived, chronyd 等の管理コマンドは sbin にある。起動方法によってはPATHに含まれないため補う
+    private static readonly string[] SystemPaths = ["/usr/local/sbin", "/usr/local/bin", "/usr/sbin", "/usr/bin", "/sbin", "/bin"];
+
+    /// <summary>.NETは親プロセスのPATHで実行ファイルを探すため、sbinを補ったPATHで自前で解決する。</summary>
+    private static string Resolve(string executable)
+    {
+        if (OperatingSystem.IsWindows() || executable.Contains('/')) return executable;
+        return WithSystemPaths(Environment.GetEnvironmentVariable("PATH")).Split(':')
+            .Select(dir => Path.Combine(dir, executable))
+            .FirstOrDefault(File.Exists) ?? executable;
+    }
+
+    public static string WithSystemPaths(string? path)
+    {
+        var entries = (path ?? "").Split(':', StringSplitOptions.RemoveEmptyEntries).ToList();
+        entries.AddRange(SystemPaths.Where(p => !entries.Contains(p)));
+        return string.Join(':', entries);
     }
 }

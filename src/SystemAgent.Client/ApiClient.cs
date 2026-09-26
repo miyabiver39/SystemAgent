@@ -106,6 +106,9 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
         return (await response.Content.ReadFromJsonAsync<ImportImageResponse>(Json, cancellationToken))!;
     }
 
+    public Task<NetworkStatus> GetNetworkAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<NetworkStatus>(HttpMethod.Get, "api/network", null, authorize: true, cancellationToken);
+
     public Task<NtpResponse> GetNtpAsync(CancellationToken cancellationToken = default) =>
         SendAsync<NtpResponse>(HttpMethod.Get, "api/ntp", null, authorize: true, cancellationToken);
 

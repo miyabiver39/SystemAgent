@@ -1,0 +1,16 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "iproute2",
+  "capability": "network",
+  "description": "iproute2のJSON出力（-j はiproute2 4.13以降。RHEL 8以降、Ubuntu 18.04以降、Debian 10以降）。検証: iproute2 6.17 (AlmaLinux 9)",
+  "executable": "ip",
+  "match": { "tool": "ip", "osIds": ["*"], "minToolVersion": "4.13" },
+  "settings": {
+    "resolvConf": "/etc/resolv.conf"
+  },
+  "commands": {
+    "listInterfaces": { "args": ["-j", "-d", "addr", "show"], "parser": "iproute2-addr-json" },
+    "listRoutes": { "args": ["-j", "route", "show", "table", "main"], "parser": "iproute2-route-json" },
+    "listRoutes6": { "args": ["-j", "-6", "route", "show", "table", "main"], "parser": "iproute2-route-json" }
+  }
+}

@@ -9,6 +9,7 @@
 
   <data name="Nav_Home" xml:space="preserve"><value>ダッシュボード</value></data>
   <data name="Nav_Containers" xml:space="preserve"><value>コンテナ</value></data>
+  <data name="Nav_Network" xml:space="preserve"><value>ネットワーク</value></data>
   <data name="Nav_Ntp" xml:space="preserve"><value>時刻同期</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
@@ -94,6 +95,30 @@
   <data name="Images_Name" xml:space="preserve"><value>イメージ名</value></data>
   <data name="Images_Import" xml:space="preserve"><value>アーカイブから取り込み</value></data>
   <data name="Images_ImportHint" xml:space="preserve"><value>podman save / docker save で作成したtarファイルを取り込みます（エアギャップ環境向け）。数GBのファイルはCLIの `systemagent image import` の方が高速です。</value></data>
+  <data name="Network_Title" xml:space="preserve"><value>ネットワーク</value></data>
+  <data name="Network_ReadOnly" xml:space="preserve"><value>現在は参照のみです。設定変更は安全策の方針確定後に対応します。</value></data>
+  <data name="Network_Unavailable" xml:space="preserve"><value>このノードではネットワーク情報を取得できません。</value></data>
+  <data name="Network_Interfaces" xml:space="preserve"><value>インターフェース</value></data>
+  <data name="Network_ShowAll" xml:space="preserve"><value>ループバック・コンテナ用・リンクローカルも表示</value></data>
+  <data name="Network_Kind" xml:space="preserve"><value>種別</value></data>
+  <data name="Network_Addresses" xml:space="preserve"><value>アドレス</value></data>
+  <data name="Network_ContainerSuffix" xml:space="preserve"><value>（コンテナ用）</value></data>
+  <data name="Network_Routes" xml:space="preserve"><value>経路</value></data>
+  <data name="Network_Destination" xml:space="preserve"><value>宛先</value></data>
+  <data name="Network_Gateway" xml:space="preserve"><value>ゲートウェイ</value></data>
+  <data name="Network_Device" xml:space="preserve"><value>デバイス</value></data>
+  <data name="Network_Protocol" xml:space="preserve"><value>プロトコル</value></data>
+  <data name="Network_DnsServers" xml:space="preserve"><value>DNSサーバー</value></data>
+  <data name="Network_SearchDomains" xml:space="preserve"><value>検索ドメイン</value></data>
+  <data name="IfKind_Other" xml:space="preserve"><value>その他</value></data>
+  <data name="IfKind_Loopback" xml:space="preserve"><value>ループバック</value></data>
+  <data name="IfKind_Physical" xml:space="preserve"><value>物理</value></data>
+  <data name="IfKind_Bridge" xml:space="preserve"><value>ブリッジ</value></data>
+  <data name="IfKind_Bond" xml:space="preserve"><value>ボンディング</value></data>
+  <data name="IfKind_Vlan" xml:space="preserve"><value>VLAN</value></data>
+  <data name="IfKind_Veth" xml:space="preserve"><value>veth</value></data>
+  <data name="IfKind_Dummy" xml:space="preserve"><value>ダミー</value></data>
+  <data name="IfKind_Tunnel" xml:space="preserve"><value>トンネル</value></data>
   <data name="Ntp_Title" xml:space="preserve"><value>時刻同期（NTP）</value></data>
   <data name="Ntp_Unavailable" xml:space="preserve"><value>このノードでは時刻同期の管理を利用できません。</value></data>
   <data name="Ntp_Implementation" xml:space="preserve"><value>時刻同期サービス</value></data>
