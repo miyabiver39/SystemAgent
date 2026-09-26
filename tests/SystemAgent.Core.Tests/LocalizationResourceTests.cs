@@ -18,6 +18,7 @@ public partial class LocalizationResourceTests
         .. Enum.GetNames<CapabilityProviders.ContainerState>().Select(s => "State_" + s),
         .. Enum.GetNames<CapabilityProviders.NtpSourceState>().Select(s => "NtpState_" + s),
         .. Enum.GetNames<CapabilityProviders.InterfaceKind>().Select(s => "IfKind_" + s),
+        "DbSource_None", "DbSource_Secret", "DbSource_Configuration",
     ];
 
     [Fact]

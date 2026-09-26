@@ -83,6 +83,15 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task<ClusterStatusResponse> JoinClusterAsync(string token, CancellationToken cancellationToken = default) =>
         SendAsync<ClusterStatusResponse>(HttpMethod.Post, "api/cluster/join", new JoinClusterRequest(token), authorize: true, cancellationToken);
 
+    public Task<DatabaseSettingsResponse> GetDatabaseAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<DatabaseSettingsResponse>(HttpMethod.Get, "api/system/database", null, authorize: true, cancellationToken);
+
+    public Task SetDatabaseAsync(SetDatabaseRequest request, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Put, "api/system/database", request, authorize: true, cancellationToken);
+
+    public Task MigrateDatabaseAsync(CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, "api/system/database/migrate", null, authorize: true, cancellationToken);
+
     public Task<HostEnvironment> GetEnvironmentAsync(bool refresh = false, CancellationToken cancellationToken = default) =>
         SendAsync<HostEnvironment>(HttpMethod.Get, $"api/system/environment?refresh={refresh}", null, authorize: true, cancellationToken);
 

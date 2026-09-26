@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.FileProviders;
 using SystemAgent.Client;
 using SystemAgent.Core.Security;
 using SystemAgent.Infrastructure;
@@ -11,7 +13,26 @@ using SystemAgent.Web.Auth;
 using SystemAgent.Web.Client;
 using SystemAgent.Web.Components;
 
-var builder = WebApplication.CreateBuilder(args);
+// パッケージ導入時（/usr/lib/systemagent）は起動時のカレントディレクトリが任意のため、配置先をコンテンツルートにする。
+// 開発時（dotnet run）はプロジェクトディレクトリに appsettings.json があるのでそのまま
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = File.Exists("appsettings.json") ? null : AppContext.BaseDirectory,
+});
+
+// RPM/DEBで導入した場合の設定ファイル（ポート・ノード名等。DB接続情報はここではなく暗号化して保存する）。
+// appsettings*.json の後、環境変数より前に読む（環境変数で上書きできるように）
+if (!OperatingSystem.IsWindows())
+{
+    var lastJson = builder.Configuration.Sources.ToList().FindLastIndex(s => s is JsonConfigurationSource);
+    builder.Configuration.Sources.Insert(lastJson + 1, new JsonConfigurationSource
+    {
+        Path = "etc/systemagent/systemagent.json",
+        Optional = true,
+        FileProvider = new PhysicalFileProvider("/"),
+    });
+}
 
 builder.WebHost.ConfigureKestrel((context, kestrel) => KestrelEndpoints.Configure(kestrel, context.Configuration));
 

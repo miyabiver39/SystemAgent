@@ -1,0 +1,141 @@
+@page "/settings"
+@inherits NodeScopedPage
+
+<PageTitle>@L["Settings_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Settings_Title"]</h1>
+
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
+
+<section class="card">
+    <h2>@L["Db_Title"]</h2>
+    <p class="hint">@L["Db_Hint"]</p>
+    @if (_db is null)
+    {
+        <p class="muted">@L["Common_Loading"]</p>
+    }
+    else
+    {
+        <dl>
+            <dt>@L["Db_Source"]</dt><dd>@L["DbSource_" + _db.Source]</dd>
+            @if (_db.Server is not null)
+            {
+                <dt>@L["Db_Target"]</dt><dd class="mono">@_db.User@@@_db.Server:@_db.Port/@_db.Database</dd>
+            }
+            <dt>@L["Db_Connection"]</dt>
+            <dd>
+                <span class="badge @(_db.Reachable ? "state-running" : "state-exited")">@(_db.Reachable ? L["Dashboard_DbUp"] : L["Dashboard_DbDown"])</span>
+                @if (_db.Error is not null) { <div class="hint">@_db.Error</div> }
+            </dd>
+            @if (_db.PendingMigrations.Count > 0)
+            {
+                <dt>@L["Db_Pending"]</dt>
+                <dd>
+                    <span class="mono">@string.Join(", ", _db.PendingMigrations)</span>
+                    <button type="button" class="link" disabled="@_busy" @onclick="MigrateAsync">@L["Db_Migrate"]</button>
+                </dd>
+            }
+        </dl>
+
+        <h2 style="margin-top:1.25rem">@L["Db_Change"]</h2>
+        <EditForm Model="_form" OnSubmit="SaveAsync" FormName="db-settings" class="grid-form">
+            <label>@L["Db_Server"]<InputText @bind-Value="_form.Server" placeholder="10.0.0.100" /></label>
+            <label>@L["Db_Port"]<InputNumber @bind-Value="_form.Port" /></label>
+            <label>@L["Db_Database"]<InputText @bind-Value="_form.Database" /></label>
+            <label>@L["Db_User"]<InputText @bind-Value="_form.User" autocomplete="off" /></label>
+            <label>@L["Login_Password"]<InputText type="password" @bind-Value="_form.Password" autocomplete="new-password" /></label>
+            <div class="form-actions">
+                <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Db_Save"])</button>
+            </div>
+        </EditForm>
+    }
+</section>
+
+@code {
+    private DatabaseSettingsResponse? _db;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+    private DbForm _form = new();
+
+    protected override async Task LoadAsync()
+    {
+        _error = null;
+        _db = null;
+        try
+        {
+            _db = await Api.GetDatabaseAsync();
+            _form = new DbForm
+            {
+                Server = _db.Server ?? "",
+                Port = _db.Port ?? 3306,
+                Database = _db.Database ?? "systemagent",
+                User = _db.User ?? "systemagent",
+            };
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Server) || string.IsNullOrWhiteSpace(_form.Database)
+            || string.IsNullOrWhiteSpace(_form.User) || string.IsNullOrEmpty(_form.Password))
+        {
+            _error = L["Common_RequiredAll"];
+            return;
+        }
+        await RunAsync(async () =>
+        {
+            await Api.SetDatabaseAsync(new SetDatabaseRequest(_form.Server.Trim(), _form.Port, _form.Database.Trim(), _form.User.Trim(), _form.Password));
+            _message = L["Db_Saved"];
+        });
+    }
+
+    private Task MigrateAsync() => RunAsync(async () =>
+    {
+        await Api.MigrateDatabaseAsync();
+        _message = L["Db_Migrated"];
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            await action();
+            var message = _message;
+            await LoadAsync();
+            _message = message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+            _form.Password = "";
+        }
+    }
+
+    private sealed class DbForm
+    {
+        public string Server { get; set; } = "";
+        public int Port { get; set; } = 3306;
+        public string Database { get; set; } = "systemagent";
+        public string User { get; set; } = "systemagent";
+        public string Password { get; set; } = "";
+    }
+}

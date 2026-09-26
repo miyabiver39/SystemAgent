@@ -52,6 +52,18 @@ public sealed record EnrollRequest(
 
 public sealed record EnrollResponse(Guid NodeId, string ClusterName, string NodeCertificatePem, string CaCertificatePem);
 
+/// <param name="Source">None / Secret（暗号化して保存済み）/ Configuration（設定ファイル）</param>
+public sealed record DatabaseSettingsResponse(
+    string Source, string? Server, int? Port, string? Database, string? User, bool Reachable, string? Error,
+    IReadOnlyList<string> PendingMigrations);
+
+public sealed record SetDatabaseRequest(
+    [Required, MaxLength(253)] string Server,
+    [Range(1, 65535)] int Port,
+    [Required, MaxLength(64)] string Database,
+    [Required, MaxLength(80)] string User,
+    [Required] string Password);
+
 public sealed record SetupStatusResponse(bool Required);
 
 public sealed record SetupRequest(

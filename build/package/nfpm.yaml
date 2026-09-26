@@ -1,0 +1,66 @@
+# RPM/DEBパッケージ定義（ADR-006）。build/package/package.ps1 から実行する（リポジトリルートがカレントディレクトリ）。
+# systemdのunitファイルは含めない（利用者側で用意する。ADR-017）。
+name: systemagent
+arch: amd64
+platform: linux
+version: ${SYSTEMAGENT_VERSION}
+release: 1
+section: admin
+priority: optional
+maintainer: SystemAgent developers
+description: |
+  RHEL/Debian系サーバーの統合運用管理ツール（コンテナ・ネットワーク・NTP・Keepalived・レジストリ・デプロイ）。
+  WebUI/WebAPI（/usr/lib/systemagent/SystemAgent.Web）とCLI（/usr/bin/systemagent）。
+license: Proprietary
+
+# .NETのグローバリゼーションに必要（最小構成のOSには入っていないことがある。ADR-016）
+depends:
+  - libicu
+overrides:
+  deb:
+    depends:
+      - libicu78 | libicu76 | libicu74 | libicu72 | libicu70 | libicu67 | libicu66 | libicu63
+
+contents:
+  # WebUI/WebAPI（self-contained。.NETランタイムの導入は不要）
+  - src: ./artifacts/package/web
+    dst: /usr/lib/systemagent
+    type: tree
+    file_info:
+      mode: 0644
+  - src: ./artifacts/package/web-exec/SystemAgent.Web
+    dst: /usr/lib/systemagent/SystemAgent.Web
+    file_info:
+      mode: 0755
+  - src: ./artifacts/package/web-exec/createdump
+    dst: /usr/lib/systemagent/createdump
+    file_info:
+      mode: 0755
+
+  # CLI（単一ファイル）
+  - src: ./artifacts/package/cli/systemagent
+    dst: /usr/bin/systemagent
+    file_info:
+      mode: 0755
+
+  # 設定（アップグレード時に上書きしない）
+  - src: ./build/package/systemagent.json
+    dst: /etc/systemagent/systemagent.json
+    type: config|noreplace
+    file_info:
+      mode: 0640
+
+  # 現地で追加するコマンドテンプレートの置き場（ADR-016）
+  - dst: /etc/systemagent/templates
+    type: dir
+    file_info:
+      mode: 0755
+
+  # 秘密情報（ホスト固有鍵・暗号化済み秘密情報）。初回起動時に生成される
+  - dst: /var/lib/systemagent
+    type: dir
+    file_info:
+      mode: 0700
+
+scripts:
+  postinstall: ./build/package/postinstall.sh

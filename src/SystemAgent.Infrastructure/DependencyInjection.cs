@@ -33,16 +33,16 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration configuration, string contentRootPath)
     {
-        var connectionString = configuration.GetConnectionString("Default")
-            ?? throw new InvalidOperationException("ConnectionStrings:Default が設定されていません。");
-
         // ServerVersion.AutoDetect()はDB接続を要求するため使用しない。
         // MariaDB起動前でもアプリを起動可能にする必要がある（基本設計書 5.2節）。
         var serverVersion = new MariaDbServerVersion(
             Version.Parse(configuration["Database:MariaDbVersion"] ?? "10.5.0"));
 
-        services.AddDbContext<AppDbContext>(options =>
-            options.UseMySql(connectionString, serverVersion));
+        // 接続文字列はDbContext生成のたびに取得する（WebUI/CLIから変更したら再起動なしで反映）
+        services.AddSingleton<DatabaseConnection>();
+        services.AddDbContext<AppDbContext>((sp, options) =>
+            options.UseMySql(sp.GetRequiredService<DatabaseConnection>().ConnectionStringOrPlaceholder, serverVersion));
+        services.AddScoped<DatabaseMigrator>();
 
         var secretStorePath = Path.Combine(contentRootPath, configuration["SecretStore:Path"] ?? DefaultSecretStorePath);
         services.AddSingleton<ILocalSecretStore>(sp =>

@@ -1,0 +1,14 @@
+{
+  "Urls": "http://0.0.0.0:5000",
+  "Cluster": {
+    "Port": 5443,
+    "NodeName": "",
+    "AdvertiseAddress": ""
+  },
+  "Container": {
+    "Runtime": "auto"
+  },
+  "Ntp": {
+    "Implementation": "auto"
+  }
+}

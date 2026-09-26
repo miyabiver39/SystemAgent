@@ -84,6 +84,7 @@ systemagent ntp status|set <server>...|sync
 systemagent network show [--all]
 systemagent cluster status|init <name>|token
 systemagent join <token>
+systemagent db status|set|migrate
 systemagent --node <ノード名> container list   # 他ノードの操作（env/container/image/pod/ntp/network）
 ```
 
@@ -115,14 +116,23 @@ dotnet publish src/SystemAgent.Cli -c Release -r linux-x64 --self-contained -p:P
 
 OSコマンドの差分は`src/SystemAgent.Infrastructure/CommandTemplates/`のJSONで定義する（[ADR-005](docs/adr/0005-command-abstraction.md)、[ADR-016](docs/adr/0016-command-template-implementation.md)）。新しいOS/バージョンへの対応は、原則としてテンプレートの追加だけで行う。現地では`/etc/systemagent/templates/`に置けば再ビルドなしで追加・上書きできる。スキーマは`command-template.schema.json`、必須コマンドは`TemplateRequirements.cs`。
 
+## パッケージ（RPM/DEB）
+
+[ADR-019](docs/adr/0019-packaging-layout-and-db-connection.md)。nfpm（`go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest`）が必要。
+
+```powershell
+./build/package/package.ps1 -Version 0.1.0   # artifacts/package/*.rpm, *.deb
+```
+
+導入後の手順はインストール時に表示される（setup → login → `systemagent db set` → cluster init / join）。DB接続情報は暗号化してローカルに保存し、`/etc`には置かない。
+
 ## DBマイグレーション
 
 ```bash
 dotnet ef migrations add <Name> --project src/SystemAgent.Infrastructure --startup-project src/SystemAgent.Web -o Persistence/Migrations
-dotnet ef database update --project src/SystemAgent.Infrastructure --startup-project src/SystemAgent.Web
 ```
 
-接続文字列は`src/SystemAgent.Web/appsettings.json`の`ConnectionStrings:Default`（テンプレート値。実際の秘密情報はホスト側で管理する。[ADR-003](docs/adr/0003-secret-protection.md)）。
+本番ではマイグレーションはアプリが適用する（`systemagent db set`の保存時、またはバージョンアップ後に`systemagent db migrate`）。開発時は`dotnet ef database update ...`でもよい（開発用の接続文字列は`appsettings.Development.json`）。
 
 ## ステータス
 

@@ -11,6 +11,26 @@
   <data name="Nav_Containers" xml:space="preserve"><value>コンテナ</value></data>
   <data name="Nav_Network" xml:space="preserve"><value>ネットワーク</value></data>
   <data name="Nav_Ntp" xml:space="preserve"><value>時刻同期</value></data>
+  <data name="Nav_Settings" xml:space="preserve"><value>設定</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>設定</value></data>
+  <data name="Db_Title" xml:space="preserve"><value>データベース接続</value></data>
+  <data name="Db_Hint" xml:space="preserve"><value>このノードが使う中央DB（MariaDB）の接続先です。接続情報はホスト固有の鍵で暗号化してこのノードに保存します。冗長構成ではVIPを指定してください。</value></data>
+  <data name="Db_Source" xml:space="preserve"><value>設定元</value></data>
+  <data name="Db_Target" xml:space="preserve"><value>接続先</value></data>
+  <data name="Db_Connection" xml:space="preserve"><value>接続</value></data>
+  <data name="Db_Pending" xml:space="preserve"><value>未適用のマイグレーション</value></data>
+  <data name="Db_Migrate" xml:space="preserve"><value>適用する</value></data>
+  <data name="Db_Migrated" xml:space="preserve"><value>マイグレーションを適用しました。</value></data>
+  <data name="Db_Change" xml:space="preserve"><value>接続先の変更</value></data>
+  <data name="Db_Server" xml:space="preserve"><value>サーバー</value></data>
+  <data name="Db_Port" xml:space="preserve"><value>ポート</value></data>
+  <data name="Db_Database" xml:space="preserve"><value>データベース名</value></data>
+  <data name="Db_User" xml:space="preserve"><value>ユーザー名</value></data>
+  <data name="Db_Save" xml:space="preserve"><value>接続を確認して保存</value></data>
+  <data name="Db_Saved" xml:space="preserve"><value>接続を確認し、DB接続設定を保存しました。</value></data>
+  <data name="DbSource_None" xml:space="preserve"><value>未設定</value></data>
+  <data name="DbSource_Secret" xml:space="preserve"><value>暗号化して保存済み</value></data>
+  <data name="DbSource_Configuration" xml:space="preserve"><value>設定ファイル</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>
