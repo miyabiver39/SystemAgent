@@ -1,0 +1,6 @@
+@SystemAgent.Api_HostAddress = http://localhost:5051
+
+GET {{SystemAgent.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SystemAgent.Api/SystemAgent.Api.csproj" />
+    <Project Path="src/SystemAgent.Cli/SystemAgent.Cli.csproj" />
+    <Project Path="src/SystemAgent.Core/SystemAgent.Core.csproj" />
+    <Project Path="src/SystemAgent.Web/SystemAgent.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SystemAgent.Core.Tests/SystemAgent.Core.Tests.csproj" />
+  </Folder>
+</Solution>
