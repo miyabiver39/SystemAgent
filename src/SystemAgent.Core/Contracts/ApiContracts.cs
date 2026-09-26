@@ -64,6 +64,17 @@ public sealed record SetDatabaseRequest(
     [Required, MaxLength(80)] string User,
     [Required] string Password);
 
+public sealed record BackupFileInfo(string Name, long SizeBytes, DateTimeOffset CreatedAt);
+
+/// <param name="RateLimitKBps">帯域制御（KB/秒、0は無制限）。</param>
+/// <param name="DailyAt">定時バックアップの時刻（HH:mm、このノードのローカル時刻）。未設定なら定時実行しない。</param>
+public sealed record BackupSettingsResponse(string Directory, int Retention, int RateLimitKBps, string? DailyAt, string? Tool);
+
+public sealed record BackupListResponse(BackupSettingsResponse Settings, IReadOnlyList<BackupFileInfo> Files);
+
+/// <param name="Confirm">誤操作防止のため、復元するファイル名をもう一度指定する。</param>
+public sealed record RestoreBackupRequest([Required] string Confirm);
+
 public sealed record SetupStatusResponse(bool Required);
 
 public sealed record SetupRequest(

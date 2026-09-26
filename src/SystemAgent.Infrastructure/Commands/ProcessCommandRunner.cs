@@ -9,6 +9,12 @@ public sealed record CommandResult(int ExitCode, string StandardOutput, string S
 public interface ICommandRunner
 {
     Task<CommandResult> RunAsync(string executable, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// 大きな入出力（DBダンプ等）をメモリに載せずに流す。stdin/stdoutはnull可。戻り値のStandardOutputは常に空。
+    /// </summary>
+    Task<CommandResult> RunStreamingAsync(string executable, IReadOnlyList<string> arguments, Stream? stdin, Stream? stdout,
+        TimeSpan timeout, CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -19,6 +25,44 @@ public sealed class ProcessCommandRunner(IConfiguration configuration, ILogger<P
 {
     public async Task<CommandResult> RunAsync(
         string executable, IReadOnlyList<string> arguments, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        using var process = Start(executable, arguments);
+        if (process is null) return new CommandResult(127, "", $"{executable} を実行できません。");
+        process.StandardInput.Close();
+
+        return await WaitAsync(process, executable, timeout, cancellationToken, async token =>
+        {
+            var stdout = process.StandardOutput.ReadToEndAsync(token);
+            var stderr = process.StandardError.ReadToEndAsync(token);
+            await process.WaitForExitAsync(token);
+            return new CommandResult(process.ExitCode, await stdout, await stderr);
+        });
+    }
+
+    public async Task<CommandResult> RunStreamingAsync(string executable, IReadOnlyList<string> arguments, Stream? stdin, Stream? stdout,
+        TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        using var process = Start(executable, arguments);
+        if (process is null) return new CommandResult(127, "", $"{executable} を実行できません。");
+
+        return await WaitAsync(process, executable, timeout, cancellationToken, async token =>
+        {
+            var stderr = process.StandardError.ReadToEndAsync(token);
+            var input = Task.Run(async () =>
+            {
+                if (stdin is not null) await stdin.CopyToAsync(process.StandardInput.BaseStream, token);
+                process.StandardInput.Close();
+            }, token);
+            var output = stdout is null
+                ? process.StandardOutput.ReadToEndAsync(token)
+                : process.StandardOutput.BaseStream.CopyToAsync(stdout, token).ContinueWith(_ => "", token);
+            await Task.WhenAll(input, output);
+            await process.WaitForExitAsync(token);
+            return new CommandResult(process.ExitCode, "", await stderr);
+        });
+    }
+
+    private Process? Start(string executable, IReadOnlyList<string> arguments)
     {
         var useSudo = configuration.GetValue("CommandExecution:UseSudo", false);
         var startInfo = new ProcessStartInfo(Resolve(useSudo ? "sudo" : executable))
@@ -38,26 +82,28 @@ public sealed class ProcessCommandRunner(IConfiguration configuration, ILogger<P
 
         logger.LogDebug("コマンド実行: {Executable} {Arguments}", startInfo.FileName, string.Join(' ', startInfo.ArgumentList));
 
-        using var process = new Process { StartInfo = startInfo };
+        var process = new Process { StartInfo = startInfo };
         try
         {
             process.Start();
+            return process;
         }
         catch (System.ComponentModel.Win32Exception ex)
         {
-            return new CommandResult(127, "", $"{executable} を実行できません: {ex.Message}");
+            logger.LogWarning("{Executable} を実行できません: {Message}", executable, ex.Message);
+            process.Dispose();
+            return null;
         }
-        process.StandardInput.Close();
+    }
 
+    private static async Task<CommandResult> WaitAsync(Process process, string executable, TimeSpan timeout,
+        CancellationToken cancellationToken, Func<CancellationToken, Task<CommandResult>> body)
+    {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(timeout);
-
-        var stdout = process.StandardOutput.ReadToEndAsync(timeoutCts.Token);
-        var stderr = process.StandardError.ReadToEndAsync(timeoutCts.Token);
         try
         {
-            await process.WaitForExitAsync(timeoutCts.Token);
-            return new CommandResult(process.ExitCode, await stdout, await stderr);
+            return await body(timeoutCts.Token);
         }
         catch (OperationCanceledException)
         {

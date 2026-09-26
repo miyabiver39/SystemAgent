@@ -92,6 +92,26 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task MigrateDatabaseAsync(CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Post, "api/system/database/migrate", null, authorize: true, cancellationToken);
 
+    public Task<BackupListResponse> GetBackupsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<BackupListResponse>(HttpMethod.Get, "api/backups", null, authorize: true, cancellationToken);
+
+    public Task<BackupFileInfo> CreateBackupAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<BackupFileInfo>(HttpMethod.Post, "api/backups", null, authorize: true, cancellationToken);
+
+    public Task DeleteBackupAsync(string name, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Delete, $"api/backups/{Uri.EscapeDataString(name)}", null, authorize: true, cancellationToken);
+
+    public Task RestoreBackupAsync(string name, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, $"api/backups/{Uri.EscapeDataString(name)}/restore", new RestoreBackupRequest(name), authorize: true, cancellationToken);
+
+    /// <summary>バックアップファイルをストリームで取得する（呼び出し側で破棄する）。</summary>
+    public async Task<Stream> DownloadBackupAsync(string name, CancellationToken cancellationToken = default)
+    {
+        var response = await SendCoreAsync(HttpMethod.Get, $"api/backups/{Uri.EscapeDataString(name)}", null, authorize: true, cancellationToken,
+            HttpCompletionOption.ResponseHeadersRead);
+        return new ResponseStream(response, await response.Content.ReadAsStreamAsync(cancellationToken));
+    }
+
     public Task<HostEnvironment> GetEnvironmentAsync(bool refresh = false, CancellationToken cancellationToken = default) =>
         SendAsync<HostEnvironment>(HttpMethod.Get, $"api/system/environment?refresh={refresh}", null, authorize: true, cancellationToken);
 
@@ -163,7 +183,8 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     }
 
     private async Task<HttpResponseMessage> SendCoreAsync(
-        HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken)
+        HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken,
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead)
     {
         if (_nodePrefix is not null && path.StartsWith("api/", StringComparison.Ordinal))
         {
@@ -183,7 +204,7 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        var response = await http.SendAsync(request, cancellationToken);
+        var response = await http.SendAsync(request, completion, cancellationToken);
         if (response.IsSuccessStatusCode) return response;
 
         using (response)
@@ -217,4 +238,31 @@ public sealed class ApiException(HttpStatusCode statusCode, string? detail)
     : Exception(detail ?? $"APIエラー ({(int)statusCode})")
 {
     public HttpStatusCode StatusCode { get; } = statusCode;
+}
+
+/// <summary>応答本文のストリーム。破棄時に応答も破棄する。</summary>
+internal sealed class ResponseStream(HttpResponseMessage response, Stream inner) : Stream
+{
+    public override bool CanRead => true;
+    public override bool CanSeek => false;
+    public override bool CanWrite => false;
+    public override long Length => inner.Length;
+    public override long Position { get => inner.Position; set => throw new NotSupportedException(); }
+    public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+    public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => inner.ReadAsync(buffer, cancellationToken);
+    public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) => inner.ReadAsync(buffer, offset, count, cancellationToken);
+    public override void Flush() { }
+    public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+    public override void SetLength(long value) => throw new NotSupportedException();
+    public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            inner.Dispose();
+            response.Dispose();
+        }
+        base.Dispose(disposing);
+    }
 }

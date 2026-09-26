@@ -1,0 +1,14 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "mariadb-dump",
+  "capability": "db-backup",
+  "description": "MariaDB 10.5以降のクライアント（mariadb-dump / mariadb）。検証: MariaDB 10.5 (AlmaLinux 9)",
+  "executable": "mariadb-dump",
+  "match": { "tool": "mariadb-dump", "osIds": ["*"] },
+  "commands": {
+    "dump": {
+      "args": ["--defaults-extra-file={defaults}", "--single-transaction", "--quick", "--routines", "--triggers", "--no-tablespaces", "--databases", "{database}"]
+    },
+    "restore": { "executable": "mariadb", "args": ["--defaults-extra-file={defaults}"] }
+  }
+}

@@ -180,5 +180,26 @@ public sealed class CommandTemplateTests : IDisposable
             Calls.Add(call);
             return Task.FromResult(Respond?.Invoke(call) ?? Result);
         }
+
+        /// <summary>ストリーミング実行で標準出力に書く内容。</summary>
+        public byte[] StreamOutput { get; init; } = [];
+
+        /// <summary>ストリーミング実行で標準入力から受け取った内容。</summary>
+        public byte[] ReceivedInput { get; private set; } = [];
+
+        public async Task<CommandResult> RunStreamingAsync(string executable, IReadOnlyList<string> arguments, Stream? stdin, Stream? stdout,
+            TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            var call = string.Join(' ', [executable, .. arguments]);
+            Calls.Add(call);
+            if (stdin is not null)
+            {
+                using var buffer = new MemoryStream();
+                await stdin.CopyToAsync(buffer, cancellationToken);
+                ReceivedInput = buffer.ToArray();
+            }
+            if (stdout is not null) await stdout.WriteAsync(StreamOutput, cancellationToken);
+            return Respond?.Invoke(call) ?? Result;
+        }
     }
 }

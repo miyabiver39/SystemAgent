@@ -10,5 +10,11 @@
   },
   "Ntp": {
     "Implementation": "auto"
+  },
+  "Backup": {
+    "Directory": "/var/lib/systemagent/backups",
+    "Retention": 7,
+    "RateLimitKBps": 10240,
+    "DailyAt": ""
   }
 }

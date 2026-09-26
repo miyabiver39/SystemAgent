@@ -1,0 +1,167 @@
+@page "/backups"
+@inherits NodeScopedPage
+@inject IJSRuntime JS
+
+<PageTitle>@L["Backups_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Backups_Title"]</h1>
+
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
+
+@if (_list is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+    return;
+}
+
+<section class="card">
+    <dl>
+        <dt>@L["Backups_Directory"]</dt><dd class="mono">@_list.Settings.Directory</dd>
+        <dt>@L["Backups_Retention"]</dt><dd>@_list.Settings.Retention</dd>
+        <dt>@L["Backups_RateLimit"]</dt><dd>@(_list.Settings.RateLimitKBps == 0 ? L["Backups_Unlimited"] : $"{_list.Settings.RateLimitKBps} KB/s")</dd>
+        <dt>@L["Backups_Schedule"]</dt><dd>@(_list.Settings.DailyAt ?? L["Backups_NoSchedule"])</dd>
+        <dt>@L["Backups_Tool"]</dt><dd>@(_list.Settings.Tool ?? L["Backups_NoTool"])</dd>
+    </dl>
+    <p class="hint">@L["Backups_SettingsHint"]</p>
+    <button type="button" class="primary" disabled="@(_busy || _list.Settings.Tool is null)" @onclick="CreateAsync">
+        @(_busy ? L["Common_Processing"] : L["Backups_Create"])
+    </button>
+</section>
+
+<section>
+    <div class="section-header">
+        <h2>@L["Backups_Files"]</h2>
+        <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+    </div>
+    @if (_list.Files.Count == 0)
+    {
+        <p class="muted">@L["Backups_Empty"]</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>@L["Backups_File"]</th><th>@L["Images_Size"]</th><th>@L["Images_Created"]</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var file in _list.Files)
+                {
+                    <tr @key="file.Name">
+                        <td class="mono">@file.Name</td>
+                        <td>@Formatting.Bytes(file.SizeBytes)</td>
+                        <td>@Formatting.DateTime(file.CreatedAt)</td>
+                        <td>
+                            <button type="button" class="link" disabled="@_busy" @onclick="() => DownloadAsync(file)">@L["Backups_Download"]</button>
+                            <button type="button" class="link" disabled="@_busy" @onclick="() => _restoreTarget = file.Name">@L["Backups_Restore"]</button>
+                            <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteAsync(file)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</section>
+
+@if (_restoreTarget is not null)
+{
+    <section class="card">
+        <h2>@L["Backups_RestoreTitle"]</h2>
+        <p class="notice warn">@string.Format(L["Backups_RestoreWarning"], _restoreTarget)</p>
+        <label>
+            @L["Backups_RestoreConfirm"]
+            <input class="mono" @bind="_restoreConfirm" @bind:event="oninput" autocomplete="off" />
+        </label>
+        <div class="form-actions" style="margin-top:.75rem">
+            <button type="button" class="danger" disabled="@(_busy || _restoreConfirm != _restoreTarget)" @onclick="RestoreAsync">@L["Backups_Restore"]</button>
+            <button type="button" class="link" @onclick="CancelRestore">@L["Common_Cancel"]</button>
+        </div>
+    </section>
+}
+
+@code {
+    private BackupListResponse? _list;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+    private string? _restoreTarget;
+    private string _restoreConfirm = "";
+
+    protected override async Task LoadAsync()
+    {
+        _error = null;
+        CancelRestore();
+        try
+        {
+            _list = await Api.GetBackupsAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private Task CreateAsync() => RunAsync(async () =>
+    {
+        var created = await Api.CreateBackupAsync();
+        _message = string.Format(L["Backups_Created"], created.Name, Formatting.Bytes(created.SizeBytes));
+    });
+
+    private Task DeleteAsync(BackupFileInfo file) => RunAsync(() => Api.DeleteBackupAsync(file.Name));
+
+    private Task RestoreAsync() => RunAsync(async () =>
+    {
+        var name = _restoreTarget!;
+        await Api.RestoreBackupAsync(name);
+        _message = string.Format(L["Backups_Restored"], name);
+    });
+
+    private async Task DownloadAsync(BackupFileInfo file)
+    {
+        _error = null;
+        try
+        {
+            await using var stream = await Api.DownloadBackupAsync(file.Name);
+            using var reference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("systemAgentDownload", file.Name, reference);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private void CancelRestore()
+    {
+        _restoreTarget = null;
+        _restoreConfirm = "";
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            await action();
+            var message = _message;
+            await LoadAsync();
+            _message = message;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -85,6 +85,7 @@ systemagent network show [--all]
 systemagent cluster status|init <name>|token
 systemagent join <token>
 systemagent db status|set|migrate
+systemagent backup list|create|download|rm|restore
 systemagent --node <ノード名> container list   # 他ノードの操作（env/container/image/pod/ntp/network）
 ```
 

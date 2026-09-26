@@ -1,0 +1,14 @@
+{
+  "$schema": "../command-template.schema.json",
+  "id": "mysqldump",
+  "capability": "db-backup",
+  "description": "旧来のクライアント名（mysqldump / mysql。MariaDB 10.4以前やEOL環境向け）",
+  "executable": "mysqldump",
+  "match": { "tool": "mysqldump", "osIds": ["*"] },
+  "commands": {
+    "dump": {
+      "args": ["--defaults-extra-file={defaults}", "--single-transaction", "--quick", "--routines", "--triggers", "--no-tablespaces", "--databases", "{database}"]
+    },
+    "restore": { "executable": "mysql", "args": ["--defaults-extra-file={defaults}"] }
+  }
+}

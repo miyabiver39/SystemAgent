@@ -33,6 +33,9 @@ public sealed class EnvironmentDetector(ICommandRunner runner, ILogger<Environme
         // 出力例: "ip utility, iproute2-6.2.0" / 古い版は "iproute2-ss200127"
         ("ip", new("ip", ["-V"], VersionPattern: @"iproute2-(?:ss)?([\d.]+)")),
         ("keepalived", new("keepalived", ["--version"])),
+        // 出力例: "mariadb-dump  Ver 10.19 Distrib 10.5.29-MariaDB"（サーバーのバージョンを取る）
+        ("mariadb-dump", new("mariadb-dump", ["--version"], VersionPattern: @"Distrib ([\d.]+)")),
+        ("mysqldump", new("mysqldump", ["--version"], VersionPattern: @"(?:Distrib|Ver) ([\d.]+)")),
     ];
 
     private readonly SemaphoreSlim _lock = new(1, 1);

@@ -31,6 +31,28 @@
   <data name="DbSource_None" xml:space="preserve"><value>未設定</value></data>
   <data name="DbSource_Secret" xml:space="preserve"><value>暗号化して保存済み</value></data>
   <data name="DbSource_Configuration" xml:space="preserve"><value>設定ファイル</value></data>
+  <data name="Nav_Backups" xml:space="preserve"><value>バックアップ</value></data>
+  <data name="Backups_Title" xml:space="preserve"><value>DBバックアップ</value></data>
+  <data name="Backups_Directory" xml:space="preserve"><value>保存先</value></data>
+  <data name="Backups_Retention" xml:space="preserve"><value>保持世代数</value></data>
+  <data name="Backups_RateLimit" xml:space="preserve"><value>帯域制御</value></data>
+  <data name="Backups_Unlimited" xml:space="preserve"><value>無制限</value></data>
+  <data name="Backups_Schedule" xml:space="preserve"><value>定時バックアップ</value></data>
+  <data name="Backups_NoSchedule" xml:space="preserve"><value>なし</value></data>
+  <data name="Backups_Tool" xml:space="preserve"><value>ダンプツール</value></data>
+  <data name="Backups_NoTool" xml:space="preserve"><value>なし（このノードではバックアップできません。mariadb-dump / mysqldump を導入してください）</value></data>
+  <data name="Backups_SettingsHint" xml:space="preserve"><value>設定は /etc/systemagent/systemagent.json の Backup（Directory / Retention / RateLimitKBps / DailyAt）で変更します。中央DBは全ノード共通のため、定時バックアップはクラスタ内の1台で設定してください。</value></data>
+  <data name="Backups_Create" xml:space="preserve"><value>今すぐバックアップ</value></data>
+  <data name="Backups_Created" xml:space="preserve"><value>バックアップを作成しました: {0}（{1}）</value></data>
+  <data name="Backups_Files" xml:space="preserve"><value>バックアップファイル</value></data>
+  <data name="Backups_Empty" xml:space="preserve"><value>バックアップはありません。</value></data>
+  <data name="Backups_File" xml:space="preserve"><value>ファイル</value></data>
+  <data name="Backups_Download" xml:space="preserve"><value>ダウンロード</value></data>
+  <data name="Backups_Restore" xml:space="preserve"><value>復元</value></data>
+  <data name="Backups_RestoreTitle" xml:space="preserve"><value>バックアップから復元</value></data>
+  <data name="Backups_RestoreWarning" xml:space="preserve"><value>DBの内容を {0} の内容で置き換えます。現在のDBの内容（ユーザー・ノード・監査ログ等）は失われ、全ノードに影響します。</value></data>
+  <data name="Backups_RestoreConfirm" xml:space="preserve"><value>続けるには、ファイル名を入力してください</value></data>
+  <data name="Backups_Restored" xml:space="preserve"><value>{0} から復元しました。必要に応じて「設定」でマイグレーションを適用してください。</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

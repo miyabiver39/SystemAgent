@@ -57,6 +57,16 @@ public static class TemplateRequirements
                     ["service"] = new(),
                 }),
 
+            ["db-backup"] = new(
+                Commands: new Dictionary<string, CommandRequirement>
+                {
+                    // 標準出力にSQLを出す（BackupServiceが速度制限しながら圧縮・保存する）
+                    ["dump"] = new(true, ["defaults", "database"]),
+                    // 標準入力からSQLを読む
+                    ["restore"] = new(true, ["defaults", "database"]),
+                },
+                Settings: new Dictionary<string, SettingRequirement>()),
+
             ["network"] = new(
                 Commands: new Dictionary<string, CommandRequirement>
                 {

@@ -9,6 +9,7 @@ using SystemAgent.Core.Security;
 using SystemAgent.Core.Users;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
+using SystemAgent.Infrastructure.Backup;
 using SystemAgent.Infrastructure.Cluster;
 using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
@@ -67,6 +68,8 @@ public static class DependencyInjection
         services.AddSingleton<ContainerRuntimeResolver>();
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();
+        services.AddSingleton<BackupService>();
+        services.AddHostedService<BackupScheduler>();
         services.AddScoped<INodeService, NodeService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuditLogger, DbAuditLogger>();
