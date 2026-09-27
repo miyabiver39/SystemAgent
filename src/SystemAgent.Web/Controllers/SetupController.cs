@@ -18,6 +18,8 @@ public class SetupController(ILocalSecretStore secrets, IAuditLogger audit) : Co
     [HttpPost]
     public async Task<IActionResult> Complete(SetupRequest request, CancellationToken cancellationToken)
     {
+        if (PasswordPolicy.Validate(request.UserName, request.Password) is { } error)
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: error);
         switch (secrets.CompleteSetup(request.SetupToken, request.UserName, request.Password))
         {
             case SetupResult.AlreadyCompleted:

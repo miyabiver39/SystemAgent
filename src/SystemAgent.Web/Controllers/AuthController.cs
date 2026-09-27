@@ -42,11 +42,19 @@ public class AuthController(
     public ActionResult<MeResponse> Me() =>
         new MeResponse(User.ActorName(), User.FindFirst(AuthConstants.AuthSourceClaim)!.Value);
 
+    /// <summary>緊急認証ユーザーのパスワード変更。そのユーザーの現在のパスワードで本人確認する（通常ログイン中の利用者でも同じ）。</summary>
     [Authorize]
     [HttpPut("emergency-users/{userName}/password")]
     public async Task<IActionResult> ChangeEmergencyPassword(
         string userName, ChangePasswordRequest request, CancellationToken cancellationToken)
     {
+        if (!secrets.VerifyEmergencyUser(userName, request.CurrentPassword))
+        {
+            await audit.LogAsync(User.ActorName(), "secret.emergency-password.change.failed", $"{userName}: 現在のパスワードが一致しません", cancellationToken);
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: UsersController.CurrentPasswordMismatch);
+        }
+        if (PasswordPolicy.Validate(userName, request.NewPassword, request.CurrentPassword) is { } error)
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: error);
         if (!secrets.ChangeEmergencyPassword(userName, request.NewPassword)) return NotFound();
 
         await audit.LogAsync(User.ActorName(), "secret.emergency-password.change", userName, cancellationToken);

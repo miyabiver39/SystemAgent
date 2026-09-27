@@ -58,6 +58,12 @@ public sealed class DeploymentFailedException(string message) : SystemAgentExcep
     public override ErrorKind Kind => ErrorKind.OperationFailed;
 }
 
+/// <summary>要求の内容が規則に反する（最後のユーザーの削除、現在のパスワードの誤り等）。</summary>
+public sealed class InvalidRequestException(string message) : SystemAgentException(message)
+{
+    public override ErrorKind Kind => ErrorKind.InvalidInput;
+}
+
 /// <summary>対象が見つからない（メッセージで何が無いかを伝える）。</summary>
 public sealed class NotFoundException(string message) : SystemAgentException(message)
 {

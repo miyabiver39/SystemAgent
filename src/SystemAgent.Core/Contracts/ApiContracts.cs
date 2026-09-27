@@ -9,17 +9,20 @@ namespace SystemAgent.Core.Contracts;
 
 public sealed record HealthResponse(string Status, bool Database, DateTimeOffset TimestampUtc);
 
-public sealed record LoginRequest([Required] string UserName, [Required] string Password);
+public sealed record LoginRequest([Required] string UserName, [Required, MaxLength(PasswordPolicy.MaxLength)] string Password);
 
 public sealed record TokenResponse(string AccessToken, DateTimeOffset ExpiresAt, string AuthSource);
 
 public sealed record MeResponse(string UserName, string AuthSource);
 
-public sealed record ChangePasswordRequest([Required, MinLength(PasswordPolicy.MinLength)] string NewPassword);
+/// <param name="CurrentPassword">変更するアカウントの現在のパスワード（本人確認。ログイン中の画面を他人に使われても変更させない）。</param>
+public sealed record ChangePasswordRequest(
+    [Required, MaxLength(PasswordPolicy.MaxLength)] string CurrentPassword,
+    [Required, MinLength(PasswordPolicy.MinLength), MaxLength(PasswordPolicy.MaxLength)] string NewPassword);
 
 public sealed record CreateUserRequest(
     [Required, RegularExpression(UserNamePolicy.Pattern)] string UserName,
-    [Required, MinLength(PasswordPolicy.MinLength)] string Password);
+    [Required, MinLength(PasswordPolicy.MinLength), MaxLength(PasswordPolicy.MaxLength)] string Password);
 
 public sealed record ContainerRuntimeResponse(string Name, string Version, string TemplateId, bool SupportsPods);
 
@@ -157,11 +160,28 @@ public sealed record SetupStatusResponse(bool Required);
 public sealed record SetupRequest(
     [Required] string SetupToken,
     [Required, RegularExpression(UserNamePolicy.Pattern)] string UserName,
-    [Required, MinLength(PasswordPolicy.MinLength)] string Password);
+    [Required, MinLength(PasswordPolicy.MinLength), MaxLength(PasswordPolicy.MaxLength)] string Password);
 
 public static class PasswordPolicy
 {
     public const int MinLength = 12;
+
+    /// <summary>ハッシュ計算に時間のかかる極端に長い入力を受け付けない。</summary>
+    public const int MaxLength = 256;
+
+    /// <summary>
+    /// 新しいパスワードが規則を満たすか。満たさなければ理由（利用者向け）を返す。
+    /// 長さに加え、ユーザー名を含むもの・現在と同じものは推測・使い回しされやすいため拒否する。
+    /// </summary>
+    public static string? Validate(string userName, string newPassword, string? currentPassword = null)
+    {
+        if (newPassword.Length < MinLength) return $"パスワードは{MinLength}文字以上で入力してください。";
+        if (newPassword.Length > MaxLength) return $"パスワードは{MaxLength}文字以内で入力してください。";
+        if (userName.Length > 0 && newPassword.Contains(userName, StringComparison.OrdinalIgnoreCase))
+            return "パスワードにユーザー名を含めることはできません。";
+        if (currentPassword is not null && newPassword == currentPassword) return "現在と同じパスワードには変更できません。";
+        return null;
+    }
 }
 
 public static class UserNamePolicy

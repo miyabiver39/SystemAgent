@@ -31,11 +31,13 @@ public sealed partial class ApiClient
     public Task DeleteUserAsync(string userName, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/users/{Uri.EscapeDataString(userName)}", null, authorize: true, cancellationToken);
 
-    public Task ChangePasswordAsync(string userName, string newPassword, bool emergency, CancellationToken cancellationToken = default)
+    /// <param name="currentPassword">変更するアカウントの現在のパスワード。</param>
+    public Task ChangePasswordAsync(string userName, string currentPassword, string newPassword, bool emergency,
+        CancellationToken cancellationToken = default)
     {
         var path = emergency
             ? $"api/auth/emergency-users/{Uri.EscapeDataString(userName)}/password"
             : $"api/users/{Uri.EscapeDataString(userName)}/password";
-        return SendAndDisposeAsync(HttpMethod.Put, path, new ChangePasswordRequest(newPassword), authorize: true, cancellationToken);
+        return SendAndDisposeAsync(HttpMethod.Put, path, new ChangePasswordRequest(currentPassword, newPassword), authorize: true, cancellationToken);
     }
 }

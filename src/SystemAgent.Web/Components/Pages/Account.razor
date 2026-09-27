@@ -23,6 +23,10 @@
         }
         <EditForm Model="_form" OnSubmit="() => ChangeAsync(auth)" FormName="change-password" class="grid-form">
             <label>
+                @L["Account_CurrentPassword"]
+                <InputText type="password" @bind-Value="_form.CurrentPassword" autocomplete="current-password" />
+            </label>
+            <label>
                 @L["Account_NewPassword"]
                 <InputText type="password" @bind-Value="_form.NewPassword" autocomplete="new-password" />
                 <span class="hint">@L["Common_PasswordRule"]</span>
@@ -52,6 +56,11 @@
     private async Task ChangeAsync(AuthenticationState auth)
     {
         _succeeded = false;
+        if (_form.CurrentPassword.Length == 0)
+        {
+            _message = L["Common_RequiredAll"];
+            return;
+        }
         if (_form.NewPassword.Length < MinPasswordLength)
         {
             _message = L["Common_PasswordRule"];
@@ -67,7 +76,7 @@
         try
         {
             await Api.ChangePasswordAsync(
-                auth.User.Identity!.Name!, _form.NewPassword, emergency: AuthSourceOf(auth) == AuthSources.Emergency);
+                auth.User.Identity!.Name!, _form.CurrentPassword, _form.NewPassword, emergency: AuthSourceOf(auth) == AuthSources.Emergency);
             _succeeded = true;
             _message = L["Account_Changed"];
             _form = new PasswordForm();
@@ -84,6 +93,7 @@
 
     private sealed class PasswordForm
     {
+        public string CurrentPassword { get; set; } = "";
         public string NewPassword { get; set; } = "";
         public string Confirm { get; set; } = "";
     }

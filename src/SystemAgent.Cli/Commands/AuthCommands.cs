@@ -74,8 +74,9 @@ internal static class AuthCommands
         passwd.SetAction((p, ct) => Run(p, async api =>
         {
             var me = await api.GetMeAsync(ct);
+            var current = ConsoleUi.ReadSecret("現在のパスワード: ");
             var password = ConsoleUi.ReadNewPassword(PasswordPolicy.MinLength);
-            await api.ChangePasswordAsync(me.UserName, password, emergency: me.AuthSource == AuthSources.Emergency, ct);
+            await api.ChangePasswordAsync(me.UserName, current, password, emergency: me.AuthSource == AuthSources.Emergency, ct);
             Console.WriteLine("パスワードを変更しました。");
         }));
         root.Subcommands.Add(passwd);

@@ -378,6 +378,7 @@
   <data name="Account_CurrentUser" xml:space="preserve"><value>ログイン中のユーザー</value></data>
   <data name="Account_AuthSource" xml:space="preserve"><value>認証方式</value></data>
   <data name="Account_ChangePassword" xml:space="preserve"><value>パスワード変更</value></data>
+  <data name="Account_CurrentPassword" xml:space="preserve"><value>現在のパスワード</value></data>
   <data name="Account_NewPassword" xml:space="preserve"><value>新しいパスワード</value></data>
   <data name="Account_ConfirmPassword" xml:space="preserve"><value>新しいパスワード（確認）</value></data>
   <data name="Account_Mismatch" xml:space="preserve"><value>確認用のパスワードが一致しません。</value></data>
