@@ -96,6 +96,26 @@ public sealed class DeployTests : IDisposable
     }
 
     [Fact]
+    public async Task Deploy_WhenCancelledDuringHealthCheck_RestoresPreviousContainer()
+    {
+        var service = Service();
+        service.Save(Spec());
+        await service.DeployAsync("web", "1.0", "admin");
+        var originalId = _runtime.Containers.Single().Id;
+
+        // 動作確認の待ち時間中に要求が取り消される（接続切れ・HTTPタイムアウト）
+        service.Save(Spec() with { HealthCheckSeconds = 30 });
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => service.DeployAsync("web", "2.0", "admin", cts.Token));
+
+        var container = Assert.Single(_runtime.Containers);
+        Assert.Equal((originalId, "web", ContainerState.Running), (container.Id, container.Name, container.State));
+        var view = (await service.GetAsync("web"))!;
+        Assert.Equal("1.0", view.CurrentTag);
+        Assert.False(view.History[0].Success);
+    }
+
+    [Fact]
     public async Task Deploy_WhenPullFails_LeavesCurrentContainerUntouched()
     {
         var service = Service();
@@ -163,6 +183,31 @@ public sealed class DeployTests : IDisposable
     [InlineData("web", "registry.example.com/app/web", "8080:80", "A=1", "../etc:/b")]
     public void Validate_RejectsInvalidSpec(string name, string image, string port, string env, string volume) =>
         Assert.Throws<ArgumentException>(() => DeploymentSpecs.Validate(new DeploymentSpec(name, image, [port], [env], [volume])));
+
+    [Theory]
+    [InlineData("/:/host")]
+    [InlineData("//:/host")]
+    [InlineData("/etc:/etc")]
+    [InlineData("/etc/:/x:ro")]
+    [InlineData("/etc/shadow:/x:ro")]
+    [InlineData("/root/.ssh:/keys")]
+    [InlineData("/var/lib/systemagent/secrets:/secrets")]
+    [InlineData("/var/lib/systemagent:/data")]
+    [InlineData("/run/podman/podman.sock:/sock")]
+    [InlineData("/var/run/docker.sock:/var/run/docker.sock")]
+    [InlineData("/proc:/p")]
+    [InlineData("/srv/app/../../etc:/x")]
+    public void Validate_RejectsProtectedHostPaths(string volume) =>
+        Assert.Throws<ArgumentException>(() => DeploymentSpecs.Validate(Spec() with { Volumes = [volume] }));
+
+    [Theory]
+    [InlineData("/srv/web:/data:ro")]
+    [InlineData("/var/lib/app:/data")]
+    [InlineData("/var/lib/systemagent-app:/data")]
+    [InlineData("/etcetera:/data")]
+    [InlineData("data:/var/lib/app")]
+    public void Validate_AllowsOtherHostPaths(string volume) =>
+        Assert.Equal([volume], DeploymentSpecs.Validate(Spec() with { Volumes = [volume] }).Volumes);
 
     [Fact]
     public void Validate_RejectsPortsWithPodAndDuplicateEnv()
