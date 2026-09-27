@@ -180,6 +180,15 @@
   <data name="Audit_OccurredAt" xml:space="preserve"><value>日時</value></data>
   <data name="Audit_Detail" xml:space="preserve"><value>内容</value></data>
   <data name="Audit_FilterThis" xml:space="preserve"><value>この操作で絞り込む</value></data>
+  <data name="Images_DropHere" xml:space="preserve"><value>ここにイメージのtarファイルをドラッグ＆ドロップ（クリックして選択）</value></data>
+  <data name="Images_DropTarget" xml:space="preserve"><value>取り込み先: {0}</value></data>
+  <data name="Images_ThisNode" xml:space="preserve"><value>このノード</value></data>
+  <data name="Images_UploadStart" xml:space="preserve"><value>{0} に取り込む</value></data>
+  <data name="Images_UploadClear" xml:space="preserve"><value>一覧をクリア</value></data>
+  <data name="Images_UploadWaiting" xml:space="preserve"><value>待機中</value></data>
+  <data name="Images_UploadLoading" xml:space="preserve"><value>読み込み中…</value></data>
+  <data name="Images_UploadDone" xml:space="preserve"><value>取り込み完了</value></data>
+  <data name="Images_UploadFailed" xml:space="preserve"><value>失敗</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>
@@ -283,7 +292,7 @@
   <data name="Images_Pulled" xml:space="preserve"><value>{0} を取得しました。</value></data>
   <data name="Images_Name" xml:space="preserve"><value>イメージ名</value></data>
   <data name="Images_Import" xml:space="preserve"><value>アーカイブから取り込み</value></data>
-  <data name="Images_ImportHint" xml:space="preserve"><value>podman save / docker save で作成したtarファイルを取り込みます（エアギャップ環境向け）。数GBのファイルはCLIの `systemagent image import` の方が高速です。</value></data>
+  <data name="Images_ImportHint" xml:space="preserve"><value>podman save / docker save で作成したtarファイルを取り込みます（エアギャップ環境向け）。複数ファイルをまとめてドロップできます。</value></data>
   <data name="Network_Title" xml:space="preserve"><value>ネットワーク</value></data>
   <data name="Network_ReadOnly" xml:space="preserve"><value>現在は参照のみです。設定変更は安全策の方針確定後に対応します。</value></data>
   <data name="Network_Unavailable" xml:space="preserve"><value>このノードではネットワーク情報を取得できません。</value></data>

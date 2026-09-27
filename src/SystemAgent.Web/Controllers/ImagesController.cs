@@ -15,7 +15,7 @@ namespace SystemAgent.Web.Controllers;
 [Authorize]
 [Route("api/images")]
 public class ImagesController(
-    ContainerRuntimeResolver resolver, RegistryService registries, IAuditLogger audit, IConfiguration configuration, ILogger<ImagesController> logger) : ControllerBase
+    ContainerRuntimeResolver resolver, RegistryService registries, ImageImporter importer, IAuditLogger audit) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ImageInfo>> List(CancellationToken cancellationToken) =>
@@ -44,58 +44,44 @@ public class ImagesController(
     }
 
     /// <summary>
-    /// multipart/form-data の最初のファイルをイメージアーカイブとして取り込む（podman/docker load）。
-    /// 数GBのファイルを想定し、メモリに載せず一時ファイルへストリーム書き込みする。
+    /// イメージアーカイブ(tar)を取り込む（podman/docker load）。次のどちらかで送る。
+    /// <list type="bullet">
+    /// <item>multipart/form-data の最初のファイル（CLI）</item>
+    /// <item>application/octet-stream の本文そのもの。ファイル名は X-File-Name ヘッダ（URLエンコード）。WebUIからの転送用</item>
+    /// </list>
     /// </summary>
     [HttpPost("import")]
     [DisableRequestSizeLimit]
     [DisableFormValueModelBinding]
     public async Task<ActionResult<ImportImageResponse>> Import(CancellationToken cancellationToken)
     {
-        if (!MediaTypeHeaderValue.TryParse(Request.ContentType, out var contentType)
-            || !contentType.MediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
+        if (!MediaTypeHeaderValue.TryParse(Request.ContentType, out var contentType))
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "multipart/form-data または application/octet-stream でファイルを送信してください。");
+
+        if (contentType.MediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = Uri.UnescapeDataString(Request.Headers[FileNameHeader].FirstOrDefault() ?? "image.tar");
+            return new ImportImageResponse(await importer.ImportAsync(Request.Body, name, User.Identity!.Name!, cancellationToken));
+        }
+
+        if (!contentType.MediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
             || HeaderUtilities.RemoveQuotes(contentType.Boundary).Value is not { Length: > 0 } boundary)
         {
-            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "multipart/form-data でファイルを送信してください。");
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "multipart/form-data または application/octet-stream でファイルを送信してください。");
         }
 
-        var runtime = await resolver.ResolveAsync(cancellationToken);
-        var tempPath = Path.Combine(ImportDirectory(), $"systemagent-import-{Guid.NewGuid():N}.tar");
-        try
+        var reader = new MultipartReader(boundary, Request.Body);
+        while (await reader.ReadNextSectionAsync(cancellationToken) is { } section)
         {
-            string? fileName = null;
-            var reader = new MultipartReader(boundary, Request.Body);
-            while (await reader.ReadNextSectionAsync(cancellationToken) is { } section)
-            {
-                if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var disposition)
-                    || !disposition.IsFileDisposition()) continue;
+            if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var disposition)
+                || !disposition.IsFileDisposition()) continue;
 
-                fileName = disposition.FileName.Value ?? disposition.FileNameStar.Value;
-                var options = new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.Write };
-                if (!OperatingSystem.IsWindows()) options.UnixCreateMode = UnixFileMode.UserRead | UnixFileMode.UserWrite;
-                await using (var file = new FileStream(tempPath, options))
-                {
-                    await section.Body.CopyToAsync(file, cancellationToken);
-                }
-                break;
-            }
-            if (fileName is null)
-            {
-                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "ファイルが含まれていません。");
-            }
-
-            logger.LogInformation("イメージアーカイブを取り込みます: {File} ({Bytes} bytes)", fileName, new FileInfo(tempPath).Length);
-            var output = await runtime.LoadImageAsync(tempPath, cancellationToken);
-            await audit.LogAsync(User.Identity!.Name!, "image.import", $"{runtime.Runtime.Name}: {fileName} → {output}", cancellationToken);
-            return new ImportImageResponse(output);
+            var fileName = disposition.FileName.Value ?? disposition.FileNameStar.Value ?? "image.tar";
+            return new ImportImageResponse(await importer.ImportAsync(section.Body, fileName, User.Identity!.Name!, cancellationToken));
         }
-        finally
-        {
-            System.IO.File.Delete(tempPath);
-        }
+        return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "ファイルが含まれていません。");
     }
 
-    // /tmp はtmpfsで容量が小さいことがあるため、Linuxの既定は /var/tmp
-    private string ImportDirectory() =>
-        configuration["Container:ImportTempPath"] ?? (OperatingSystem.IsLinux() ? "/var/tmp" : Path.GetTempPath());
+    /// <summary>octet-stream で取り込む場合のファイル名（URLエンコード）。</summary>
+    public const string FileNameHeader = "X-File-Name";
 }

@@ -47,12 +47,12 @@ public static partial class ContainerOutputParsers
             IsInfra: c.TryGetProperty("IsInfra", out var infra) && infra.ValueKind == JsonValueKind.True)).ToList();
 
     private static IReadOnlyList<ImageInfo> ParsePodmanImages(string output) =>
-        JsonArray(output).Select(i => new ImageInfo(
+        MergeById(JsonArray(output).Select(i => new ImageInfo(
             Id: i.GetProperty("Id").GetString()!,
             Tags: StringArray(i, "Names") ?? StringArray(i, "RepoTags") ?? [],
             SizeBytes: i.TryGetProperty("Size", out var size) && size.ValueKind == JsonValueKind.Number ? size.GetInt64() : null,
             CreatedAt: i.TryGetProperty("Created", out var created) && created.ValueKind == JsonValueKind.Number
-                ? DateTimeOffset.FromUnixTimeSeconds(created.GetInt64()) : null)).ToList();
+                ? DateTimeOffset.FromUnixTimeSeconds(created.GetInt64()) : null)));
 
     private static IReadOnlyList<PodInfo> ParsePodmanPods(string output) =>
         JsonArray(output).Select(p => new PodInfo(
@@ -84,7 +84,7 @@ public static partial class ContainerOutputParsers
         }).ToList();
 
     private static IReadOnlyList<ImageInfo> ParseDockerImages(string output) =>
-        JsonLines(output).Select(i =>
+        MergeById(JsonLines(output).Select(i =>
         {
             var repository = String(i, "Repository") ?? "<none>";
             var tag = String(i, "Tag") ?? "<none>";
@@ -93,9 +93,17 @@ public static partial class ContainerOutputParsers
                 Tags: repository == "<none>" ? [] : [tag == "<none>" ? repository : $"{repository}:{tag}"],
                 SizeBytes: ParseHumanSize(String(i, "Size")),
                 CreatedAt: ParseDockerTimestamp(String(i, "CreatedAt")));
-        }).ToList();
+        }));
 
     // --- 共通 ---
+
+    /// <summary>
+    /// 同じイメージが複数のタグを持つと、podman / docker とも同じIDを複数行で返すため、IDごとに1件にまとめる。
+    /// </summary>
+    private static IReadOnlyList<ImageInfo> MergeById(IEnumerable<ImageInfo> images) =>
+        images.GroupBy(i => i.Id)
+            .Select(g => g.First() with { Tags = g.SelectMany(i => i.Tags).Distinct().ToList() })
+            .ToList();
 
     public static ContainerState ParseState(string state) => state.ToLowerInvariant() switch
     {

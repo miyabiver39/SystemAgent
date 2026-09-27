@@ -81,6 +81,9 @@ builder.Services.AddScoped<TokenStore>();
 builder.Services.AddScoped<NodeSelection>();
 builder.Services.AddScoped<ITokenProvider>(sp => sp.GetRequiredService<TokenStore>());
 builder.Services.AddScoped<ApiAuthenticationStateProvider>();
+builder.Services.AddScoped<NodeForwarder>();
+builder.Services.AddScoped<ImageImporter>();
+builder.Services.AddSingleton<UploadTickets>();
 builder.Services.AddScoped<AuthenticationStateProvider>(sp => sp.GetRequiredService<ApiAuthenticationStateProvider>());
 builder.Services.AddSingleton<ApiBaseAddress>();
 builder.Services.AddHttpClient<ApiClient>((sp, client) =>

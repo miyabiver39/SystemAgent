@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using SystemAgent.Core.Nodes;
 using SystemAgent.Infrastructure.Cluster;
 using SystemAgent.Web.Api;
 using SystemAgent.Web.Auth;
@@ -14,9 +13,7 @@ namespace SystemAgent.Web.Controllers;
 /// </summary>
 [ApiController]
 [Authorize]
-public class NodeProxyController(
-    INodeService nodes, ClusterIdentity identity, ClusterHttpClientFactory clients, ClusterEndpointSettings endpoint,
-    ILogger<NodeProxyController> logger) : ControllerBase
+public class NodeProxyController(NodeForwarder forwarder, ClusterEndpointSettings endpoint) : ControllerBase
 {
     private static readonly HashSet<string> ForwardedResponseHeaders =
         new(StringComparer.OrdinalIgnoreCase) { "Content-Type", "Content-Disposition" };
@@ -30,33 +27,24 @@ public class NodeProxyController(
         // 転送先で再度転送させない（ループ防止）。操作対象はAPIのみ
         if (!path.StartsWith("api/", StringComparison.Ordinal) || path.StartsWith("api/nodes/", StringComparison.Ordinal))
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "転送できないパスです。");
-        if (identity.Current is null)
-            return Problem(statusCode: StatusCodes.Status409Conflict, detail: "このノードはクラスタに参加していないため、他ノードを操作できません。");
 
-        var node = await nodes.GetAsync(nodeId, cancellationToken);
-        if (node is null) return Problem(statusCode: StatusCodes.Status404NotFound, detail: "指定されたノードは登録されていません。");
-
-        var host = node.IpAddress.Contains(':') ? $"[{node.IpAddress}]" : node.IpAddress;
-        using var request = new HttpRequestMessage(new HttpMethod(Request.Method), $"https://{host}:{node.ClusterPort}/{path}{Request.QueryString}");
+        HttpContent? content = null;
         if (Request.ContentLength > 0 || Request.Headers.TransferEncoding.Count > 0)
         {
-            request.Content = new StreamContent(Request.Body);
-            if (Request.ContentType is { } contentType) request.Content.Headers.TryAddWithoutValidation("Content-Type", contentType);
-            if (Request.ContentLength is { } length) request.Content.Headers.ContentLength = length;
+            content = new StreamContent(Request.Body);
+            if (Request.ContentType is { } contentType) content.Headers.TryAddWithoutValidation("Content-Type", contentType);
+            if (Request.ContentLength is { } length) content.Headers.ContentLength = length;
         }
-        request.Headers.TryAddWithoutValidation("Accept", Request.Headers.Accept.ToString());
-        request.Headers.Add(ClusterHttpClientFactory.ActorHeader, Actor());
 
         HttpResponseMessage response;
         try
         {
-            response = await clients.ClientFor(nodeId).SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+            response = await forwarder.SendAsync(nodeId, new HttpMethod(Request.Method), $"{path}{Request.QueryString}", content,
+                Request.Headers.Accept.ToString(), Actor(), cancellationToken);
         }
-        catch (HttpRequestException ex)
+        catch (NodeForwarder.ForwardException ex)
         {
-            logger.LogWarning(ex, "ノード {Node}（{Address}:{Port}）への転送に失敗しました", node.HostName, node.IpAddress, node.ClusterPort);
-            return Problem(statusCode: StatusCodes.Status502BadGateway,
-                detail: $"ノード {node.HostName}（{node.IpAddress}:{node.ClusterPort}）に接続できません: {ex.Message}");
+            return Problem(statusCode: ex.StatusCode, detail: ex.Message);
         }
 
         using (response)

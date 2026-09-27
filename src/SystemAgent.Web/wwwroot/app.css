@@ -141,3 +141,11 @@ dd { margin: 0; }
 #blazor-error-ui .dismiss { cursor: pointer; position: absolute; right: .75rem; top: .5rem; }
 .blazor-error-boundary { background: var(--danger); padding: 1rem; color: white; }
 .validation-message { color: var(--danger); }
+
+/* イメージのドラッグ＆ドロップ取り込み */
+.dropzone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 1.5rem; text-align: center; cursor: pointer; margin-bottom: .75rem; }
+.dropzone:hover, .dropzone:focus-visible { border-color: var(--muted); }
+.dropzone.dragging { border-color: var(--ok); background: var(--ok-bg); }
+.dropzone.disabled { opacity: .5; cursor: not-allowed; }
+.dropzone-title { font-weight: 600; margin-bottom: .25rem; }
+progress { width: 70%; vertical-align: middle; }

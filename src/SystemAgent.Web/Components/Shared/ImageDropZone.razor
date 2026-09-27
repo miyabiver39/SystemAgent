@@ -1,0 +1,162 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@using SystemAgent.Infrastructure.Cluster
+@using SystemAgent.Web.Api
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject UploadTickets Tickets
+@inject AuthenticationStateProvider AuthState
+@inject ClusterEndpointSettings Endpoint
+
+@* イメージアーカイブ(tar)のドラッグ＆ドロップ取り込み。ブラウザから直接アップロードし、選択中のノードで podman/docker load する *@
+<div class="dropzone @(_uploading ? "disabled" : "")" @ref="_zone" tabindex="0" role="button" aria-label="@L["Images_DropHere"]">
+    <input type="file" @ref="_input" accept=".tar,.tar.gz,.tgz,.tar.xz" multiple hidden />
+    <div class="dropzone-title">@L["Images_DropHere"]</div>
+    <div class="hint">@string.Format(L["Images_DropTarget"], NodeName ?? L["Images_ThisNode"])</div>
+</div>
+
+@if (_items.Count > 0)
+{
+    <table>
+        <tbody>
+            @foreach (var (item, index) in _items.Select((item, index) => (item, index)))
+            {
+                <tr @key="index">
+                    <td>@item.Name<div class="hint">@Formatting.Bytes(item.Size)@(item.Target is null ? "" : $" → {item.Target}")</div></td>
+                    <td style="width:40%">
+                        @switch (item.Status)
+                        {
+                            case UploadStatus.Waiting:
+                                <span class="muted">@L["Images_UploadWaiting"]</span>
+                                break;
+                            case UploadStatus.Uploading:
+                                <progress max="@item.Size" value="@item.Loaded"></progress>
+                                <span class="hint">@(item.Size == 0 ? 0 : item.Loaded * 100 / item.Size)%</span>
+                                break;
+                            case UploadStatus.Loading:
+                                <span class="badge state-restarting">@L["Images_UploadLoading"]</span>
+                                break;
+                            case UploadStatus.Done:
+                                <span class="badge state-running">@L["Images_UploadDone"]</span>
+                                <div class="hint" style="white-space:pre-wrap">@item.Message</div>
+                                break;
+                            case UploadStatus.Failed:
+                                <span class="badge state-exited">@L["Images_UploadFailed"]</span>
+                                <div class="hint" style="white-space:pre-wrap">@item.Message</div>
+                                break;
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+    <div class="form-actions">
+        @if (_items.Any(i => i.Status == UploadStatus.Waiting))
+        {
+            <button type="button" class="primary" disabled="@_uploading" @onclick="UploadAllAsync">
+                @string.Format(L["Images_UploadStart"], NodeName ?? L["Images_ThisNode"])
+            </button>
+        }
+        <button type="button" class="link" disabled="@_uploading" @onclick="ClearAsync">@L["Images_UploadClear"]</button>
+    </div>
+}
+
+@code {
+    /// <summary>取り込み先ノード。nullはこのノード。</summary>
+    [Parameter] public Guid? NodeId { get; set; }
+
+    [Parameter] public string? NodeName { get; set; }
+
+    /// <summary>1件取り込むたびに呼ばれる（イメージ一覧の再読み込み用）。</summary>
+    [Parameter] public EventCallback OnImported { get; set; }
+
+    private enum UploadStatus { Waiting, Uploading, Loading, Done, Failed }
+
+    private sealed class UploadItem(string name, long size)
+    {
+        public string Name { get; } = name;
+        public long Size { get; } = size;
+        public long Loaded { get; set; }
+        public UploadStatus Status { get; set; }
+        public string? Message { get; set; }
+
+        /// <summary>取り込んだノード（操作対象ノードを切り替えた後でも、どこに取り込んだか分かるように表示する）。</summary>
+        public string? Target { get; set; }
+    }
+
+    public sealed record DroppedFile(string Name, long Size);
+
+    private readonly List<UploadItem> _items = [];
+    private ElementReference _zone;
+    private ElementReference _input;
+    private DotNetObjectReference<ImageDropZone>? _self;
+    private bool _uploading;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        _self = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("systemAgentDropZone.init", _zone, _input, _self);
+    }
+
+    [JSInvokable]
+    public Task OnFilesAdded(DroppedFile[] files)
+    {
+        if (_uploading) return Task.CompletedTask;
+        _items.AddRange(files.Select(f => new UploadItem(f.Name, f.Size)));
+        return InvokeAsync(StateHasChanged);
+    }
+
+    [JSInvokable]
+    public Task OnUploadProgress(int index, long loaded)
+    {
+        if (index >= _items.Count) return Task.CompletedTask;
+        var item = _items[index];
+        item.Loaded = loaded;
+        // 送信し終わった後はサーバー側で読み込み中
+        if (loaded >= item.Size) item.Status = UploadStatus.Loading;
+        return InvokeAsync(StateHasChanged);
+    }
+
+    private async Task UploadAllAsync()
+    {
+        _uploading = true;
+        var user = (await AuthState.GetAuthenticationStateAsync()).User.Identity?.Name ?? "unknown";
+        // 他ノードへの操作は、転送元ノードが分かる操作者名で記録する（NodeProxyControllerと同じ）
+        var actor = NodeId is null ? user : $"{user}@{Endpoint.NodeName}";
+        for (var index = 0; index < _items.Count; index++)
+        {
+            var item = _items[index];
+            if (item.Status != UploadStatus.Waiting) continue;
+            item.Status = UploadStatus.Uploading;
+            item.Target = NodeName ?? L["Images_ThisNode"];
+            StateHasChanged();
+            try
+            {
+                var ticket = Tickets.Create(actor, NodeId);
+                item.Message = await JS.InvokeAsync<string>("systemAgentDropZone.upload", TimeSpan.FromHours(6),
+                    _zone, index, $"api/uploads/images/{ticket}", _self);
+                item.Status = UploadStatus.Done;
+                await OnImported.InvokeAsync();
+            }
+            catch (JSException ex)
+            {
+                item.Status = UploadStatus.Failed;
+                item.Message = ex.Message.Split('\n')[0];
+            }
+            StateHasChanged();
+        }
+        _uploading = false;
+    }
+
+    private async Task ClearAsync()
+    {
+        _items.Clear();
+        await JS.InvokeVoidAsync("systemAgentDropZone.clear", _zone);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _self?.Dispose();
+        await Task.CompletedTask;
+    }
+}

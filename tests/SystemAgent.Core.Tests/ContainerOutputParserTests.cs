@@ -103,6 +103,22 @@ public class ContainerOutputParserTests
         Assert.Equal(1_500_000_000, image.SizeBytes);
     }
 
+    [Fact]
+    public void Images_SameIdWithSeveralTags_AreMerged()
+    {
+        // podman はタグごとに同じIDを複数行で返すことがある（画面の一覧でキーが重複しないよう1件にまとめる）
+        var podman = Assert.Single(ContainerOutputParsers.Images["podman-images-json"](
+            """[{"Id":"aaa","Names":["localhost/a:1","docker.io/library/busybox:latest"],"Size":10},{"Id":"aaa","Names":["localhost/a:1","docker.io/library/busybox:latest"],"Size":10}]"""));
+        Assert.Equal(["localhost/a:1", "docker.io/library/busybox:latest"], podman.Tags);
+
+        var docker = Assert.Single(ContainerOutputParsers.Images["docker-images-jsonl"](
+            """
+            {"ID":"sha256:x","Repository":"busybox","Tag":"latest","Size":"4MB","CreatedAt":"2020-01-01 00:00:00 +0000 UTC"}
+            {"ID":"sha256:x","Repository":"localhost/a","Tag":"1","Size":"4MB","CreatedAt":"2020-01-01 00:00:00 +0000 UTC"}
+            """));
+        Assert.Equal(["busybox:latest", "localhost/a:1"], docker.Tags);
+    }
+
     [Theory]
     [InlineData("", 0)]
     [InlineData("[]", 0)]

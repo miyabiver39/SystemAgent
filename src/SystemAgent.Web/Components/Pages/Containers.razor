@@ -178,19 +178,11 @@
     <div class="card">
         <h2>@L["Images_Import"]</h2>
         <p class="hint">@L["Images_ImportHint"]</p>
-        <InputFile OnChange="SelectArchive" accept=".tar,.tar.gz,.tgz" disabled="@_busy" />
-        @if (_archive is not null)
-        {
-            <p>@_archive.Name（@Formatting.Bytes(_archive.Size)）</p>
-            <button type="button" class="primary" disabled="@_busy" @onclick="ImportAsync">@L["Images_Import"]</button>
-        }
+        <ImageDropZone NodeId="Selection.NodeId" NodeName="@Selection.NodeName" OnImported="ReloadImagesAsync" />
     </div>
 </section>
 
 @code {
-    // 数GBのイメージを想定した上限。大きなファイルはCLIの `systemagent image import` の方が高速
-    private const long MaxArchiveBytes = 20L * 1024 * 1024 * 1024;
-
     private ContainerRuntimeResponse? _runtime;
     private List<ContainerInfo>? _containers;
     private List<PodInfo>? _pods;
@@ -205,7 +197,6 @@
     private string? _logs;
     private int _tail = 100;
     private readonly PullForm _pull = new();
-    private IBrowserFile? _archive;
 
     private List<ContainerInfo> VisibleContainers => _containers!.Where(c => _showInfra || !c.IsInfra).ToList();
 
@@ -299,20 +290,10 @@
         _busy = false;
     }
 
-    private void SelectArchive(InputFileChangeEventArgs e) => _archive = e.File;
-
-    private async Task ImportAsync()
+    private async Task ReloadImagesAsync()
     {
-        if (_archive is null) return;
-        _busy = true;
-        await RunAsync(async () =>
-        {
-            await using var stream = _archive.OpenReadStream(MaxArchiveBytes);
-            _message = (await Api.ImportImageAsync(stream, _archive.Name)).Output;
-            _archive = null;
-            _images = await Api.GetImagesAsync();
-        });
-        _busy = false;
+        await RunAsync(async () => _images = await Api.GetImagesAsync());
+        StateHasChanged();
     }
 
     private async Task RunAsync(Func<Task> action)
