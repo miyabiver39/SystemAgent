@@ -16,14 +16,7 @@
 {
     <p class="hint">@L["Containers_Runtime"]: @_runtime.Name @_runtime.Version（@L["Containers_Template"]: @_runtime.TemplateId）</p>
 }
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 <section>
     <div class="section-header">
@@ -155,7 +148,7 @@
                             <td>@Formatting.Bytes(i.SizeBytes)</td>
                             <td>@Formatting.DateTime(i.CreatedAt)</td>
                             <td>
-                                <button type="button" class="link" disabled="@_busy" @onclick="() => OpenPushAsync(i)">@L["Images_Push"]</button>
+                                <button type="button" class="link" disabled="@_op.Busy" @onclick="() => OpenPushAsync(i)">@L["Images_Push"]</button>
                                 <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => RemoveImageAsync(i)" />
                             </td>
                         </tr>
@@ -200,7 +193,7 @@
                     <label>@L["Images_PushRepository"]<InputText @bind-Value="_push.Repository" placeholder="app/web" /></label>
                     <label>@L["Images_PushTag"]<InputText @bind-Value="_push.Tag" placeholder="1.0.0" /></label>
                     <div class="form-actions">
-                        <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Images_Push"])</button>
+                        <button type="submit" class="primary" disabled="@_op.Busy">@(_op.Busy ? L["Common_Processing"] : L["Images_Push"])</button>
                         <span class="hint mono">@_push.Target</span>
                     </div>
                 </EditForm>
@@ -216,7 +209,7 @@
                 <InputText @bind-Value="_pull.Image" placeholder="registry.local:5000/app:1.0" />
             </label>
             <div class="form-actions">
-                <button type="submit" class="primary" disabled="@_busy">@L["Images_Pull"]</button>
+                <button type="submit" class="primary" disabled="@_op.Busy">@L["Images_Pull"]</button>
             </div>
         </EditForm>
     </div>
@@ -229,16 +222,14 @@
 </section>
 
 @code {
+    private readonly PageOperation _op = new();
     private ContainerRuntimeResponse? _runtime;
     private List<ContainerInfo>? _containers;
     private List<PodInfo>? _pods;
     private List<ImageInfo>? _images;
     private string? _unavailable;
-    private string? _error;
-    private string? _message;
     private bool _showInfra;
     private string? _busyId;
-    private bool _busy;
     private ContainerInfo? _logsFor;
     private string? _logs;
     private int _tail = 100;
@@ -322,18 +313,16 @@
     {
         if (string.IsNullOrWhiteSpace(_pull.Image))
         {
-            _error = L["Common_RequiredAll"];
+            _op.Error = L["Common_RequiredAll"];
             return;
         }
-        _busy = true;
         await RunAsync(async () =>
         {
             await Api.PullImageAsync(_pull.Image.Trim());
-            _message = string.Format(L["Images_Pulled"], _pull.Image.Trim());
+            _op.Message = string.Format(L["Images_Pulled"], _pull.Image.Trim());
             _pull.Image = "";
             _images = await Api.GetImagesAsync();
         });
-        _busy = false;
     }
 
     private PushForm? _push;
@@ -358,15 +347,13 @@
     private async Task PushAsync()
     {
         var push = _push!;
-        _busy = true;
         await RunAsync(async () =>
         {
             await Api.PushImageAsync(push.Source, push.Target);
-            _message = string.Format(L["Images_Pushed"], push.Source, push.Target);
+            _op.Message = string.Format(L["Images_Pushed"], push.Source, push.Target);
             _push = null;
             _images = await Api.GetImagesAsync();
         });
-        _busy = false;
     }
 
     /// <summary>イメージ名からレジストリを除いたリポジトリとタグ。IDなら空。</summary>
@@ -396,23 +383,7 @@
         StateHasChanged();
     }
 
-    private async Task RunAsync(Func<Task> action)
-    {
-        _error = null;
-        _message = null;
-        try
-        {
-            await action();
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        catch (IOException ex)
-        {
-            _error = ex.Message;
-        }
-    }
+    private Task RunAsync(Func<Task> action) => _op.RunAsync(action);
 
 
     private sealed class PullForm

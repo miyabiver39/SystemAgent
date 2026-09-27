@@ -5,14 +5,7 @@
 
 <h1>@L["Nodes_Title"]</h1>
 
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 @if (_cluster is null)
 {
@@ -29,7 +22,7 @@
             <p class="hint">@L["Cluster_InitHint"]</p>
             <EditForm Model="_init" OnSubmit="InitializeAsync" FormName="cluster-init">
                 <label>@L["Cluster_Name"]<InputText @bind-Value="_init.ClusterName" placeholder="site-a" /></label>
-                <div class="form-actions"><button type="submit" class="primary" disabled="@_busy">@L["Cluster_Init"]</button></div>
+                <div class="form-actions"><button type="submit" class="primary" disabled="@_op.Busy">@L["Cluster_Init"]</button></div>
             </EditForm>
         </section>
         <section class="card">
@@ -37,7 +30,7 @@
             <p class="hint">@L["Cluster_JoinHint"]</p>
             <EditForm Model="_join" OnSubmit="JoinAsync" FormName="cluster-join">
                 <label>@L["Cluster_Token"]<InputTextArea @bind-Value="_join.Token" rows="3" class="mono" /></label>
-                <div class="form-actions"><button type="submit" class="primary" disabled="@_busy">@L["Cluster_Join"]</button></div>
+                <div class="form-actions"><button type="submit" class="primary" disabled="@_op.Busy">@L["Cluster_Join"]</button></div>
             </EditForm>
         </section>
     </div>
@@ -106,7 +99,7 @@
 <section class="card">
     <h2>@L["Cluster_AddNode"]</h2>
     <p class="hint">@L["Cluster_AddNodeHint"]</p>
-    <button type="button" class="primary" disabled="@_busy" @onclick="CreateTokenAsync">@L["Cluster_CreateToken"]</button>
+    <button type="button" class="primary" disabled="@_op.Busy" @onclick="CreateTokenAsync">@L["Cluster_CreateToken"]</button>
     @if (_token is not null)
     {
         <p class="hint">@L["Cluster_TokenExpires"]: @Formatting.DateTime(_token.ExpiresAt) / @L["Cluster_CaUrl"]: @_token.CaUrl</p>
@@ -116,14 +109,12 @@
 </section>
 
 @code {
+    private readonly PageOperation _op = new();
     private ClusterStatusResponse? _cluster;
     private List<NodeInfo>? _nodes;
     private readonly Dictionary<Guid, bool> _reachability = [];
     private readonly Dictionary<Guid, string> _reachabilityErrors = [];
     private JoinTokenResponse? _token;
-    private string? _error;
-    private string? _message;
-    private bool _busy;
     private readonly InitForm _init = new();
     private readonly JoinForm _join = new();
 
@@ -131,7 +122,7 @@
 
     private async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         try
         {
             _cluster = await Api.GetClusterAsync();
@@ -140,7 +131,7 @@
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
             return;
         }
 
@@ -166,14 +157,14 @@
     private Task InitializeAsync() => RunAsync(async () =>
     {
         _cluster = await Api.InitializeClusterAsync(_init.ClusterName.Trim());
-        _message = L["Cluster_Initialized"];
+        _op.Message = L["Cluster_Initialized"];
         await LoadAsync();
     });
 
     private Task JoinAsync() => RunAsync(async () =>
     {
         _cluster = await Api.JoinClusterAsync(_join.Token.Trim());
-        _message = L["Cluster_Joined"];
+        _op.Message = L["Cluster_Joined"];
         await LoadAsync();
     });
 
@@ -185,24 +176,7 @@
         await LoadAsync();
     });
 
-    private async Task RunAsync(Func<Task> action)
-    {
-        _busy = true;
-        _error = null;
-        _message = null;
-        try
-        {
-            await action();
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+    private Task RunAsync(Func<Task> action) => _op.RunAsync(action);
 
     private sealed class InitForm
     {

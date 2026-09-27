@@ -1,0 +1,13 @@
+@* PageOperation のエラー・完了メッセージを表示する *@
+@if (Operation.Error is { } error)
+{
+    <p class="notice error" style="white-space:pre-wrap">@error</p>
+}
+@if (Operation.Message is { } message)
+{
+    <p class="notice ok">@message</p>
+}
+
+@code {
+    [Parameter, EditorRequired] public PageOperation Operation { get; set; } = default!;
+}

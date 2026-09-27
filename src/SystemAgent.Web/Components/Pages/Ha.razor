@@ -7,14 +7,7 @@
 <h1>@L["Ha_Title"]</h1>
 <p class="hint">@L["Ha_Hint"]</p>
 
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 @if (_status is null)
 {
@@ -26,7 +19,7 @@
 {
     <section class="notice warn">
         <p>@L["Ha_RejoinPending"]</p>
-        <button type="button" class="primary" disabled="@_busy" @onclick="RejoinAsync">@L["Ha_ApproveRejoin"]</button>
+        <button type="button" class="primary" disabled="@_op.Busy" @onclick="RejoinAsync">@L["Ha_ApproveRejoin"]</button>
     </section>
 }
 
@@ -97,7 +90,7 @@
         <label>@L["Ha_ReplHost"]<InputText @bind-Value="_form.ReplHost" placeholder="@L["Ha_ReplHostDefault"]" /></label>
         <label>@L["Ha_ReplPort"]<InputNumber @bind-Value="_form.ReplPort" /></label>
         <div class="form-actions">
-            <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Ha_SaveApply"])</button>
+            <button type="submit" class="primary" disabled="@_op.Busy">@(_op.Busy ? L["Common_Processing"] : L["Ha_SaveApply"])</button>
             <span class="hint">@L["Ha_ApplyHint"]</span>
         </div>
     </EditForm>
@@ -119,15 +112,13 @@
 }
 
 @code {
+    private readonly PageOperation _op = new();
     private HaStatusResponse? _status;
-    private string? _error;
-    private string? _message;
-    private bool _busy;
     private HaForm _form = new();
 
     protected override async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         _status = null;
         try
         {
@@ -148,7 +139,7 @@
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
@@ -160,36 +151,16 @@
             _form.Peers.Split([',', ' '], StringSplitOptions.RemoveEmptyEntries), _form.UnicastSource, _form.ReturnMode,
             _form.DbHost, _form.DbPort, _form.DbUser, _form.DbPassword, _form.ReplUser, _form.ReplPassword,
             _form.ReplHost, _form.ReplPort, Apply: true));
-        _message = L["Ha_Saved"];
+        _op.Message = L["Ha_Saved"];
     });
 
     private Task RejoinAsync() => RunAsync(async () =>
     {
         await Api.RejoinHaAsync();
-        _message = L["Ha_Rejoined"];
+        _op.Message = L["Ha_Rejoined"];
     });
 
-    private async Task RunAsync(Func<Task> action)
-    {
-        _busy = true;
-        _error = null;
-        _message = null;
-        try
-        {
-            await action();
-            var message = _message;
-            await LoadAsync();
-            _message = message;
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+    private Task RunAsync(Func<Task> action) => _op.RunAsync(action, LoadAsync);
 
     private sealed class HaForm
     {

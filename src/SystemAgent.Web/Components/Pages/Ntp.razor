@@ -11,14 +11,7 @@
     <p class="notice warn">@L["Ntp_Unavailable"] @_unavailable</p>
     return;
 }
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 @if (_ntp is null)
 {
@@ -54,7 +47,7 @@ else
             <div class="section-header">
                 <h2>@L["Ntp_Sources"]</h2>
                 <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
-                <button type="button" class="link" disabled="@_busy" @onclick="SyncAsync">@L["Ntp_SyncNow"]</button>
+                <button type="button" class="link" disabled="@_op.Busy" @onclick="SyncAsync">@L["Ntp_SyncNow"]</button>
             </div>
             <table>
                 <thead>
@@ -84,23 +77,21 @@ else
                 <InputTextArea @bind-Value="_form.Servers" rows="4" class="mono" />
             </label>
             <div class="form-actions">
-                <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Ntp_Apply"])</button>
+                <button type="submit" class="primary" disabled="@_op.Busy">@(_op.Busy ? L["Common_Processing"] : L["Ntp_Apply"])</button>
             </div>
         </EditForm>
     </section>
 }
 
 @code {
+    private readonly PageOperation _op = new();
     private NtpResponse? _ntp;
     private string? _unavailable;
-    private string? _error;
-    private string? _message;
-    private bool _busy;
     private readonly ServersForm _form = new();
 
     protected override async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         _unavailable = null;
         try
         {
@@ -113,7 +104,7 @@ else
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
@@ -122,43 +113,23 @@ else
         var servers = _form.Servers.Split(['\n', ',', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (servers.Length == 0)
         {
-            _error = L["Common_RequiredAll"];
+            _op.Error = L["Common_RequiredAll"];
             return;
         }
         await RunAsync(async () =>
         {
             await Api.SetNtpServersAsync(servers);
-            _message = L["Ntp_Applied"];
+            _op.Message = L["Ntp_Applied"];
         });
     }
 
     private Task SyncAsync() => RunAsync(async () =>
     {
         await Api.SyncNtpAsync();
-        _message = L["Ntp_Synchronized"];
+        _op.Message = L["Ntp_Synchronized"];
     });
 
-    private async Task RunAsync(Func<Task> action)
-    {
-        _busy = true;
-        _error = null;
-        _message = null;
-        try
-        {
-            await action();
-            var message = _message;
-            await LoadAsync();
-            _message = message;
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+    private Task RunAsync(Func<Task> action) => _op.RunAsync(action, LoadAsync);
 
     private sealed class ServersForm
     {

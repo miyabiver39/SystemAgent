@@ -8,14 +8,7 @@
 <h1>@L["Deploy_Title"]</h1>
 <p class="hint">@L["Deploy_Hint"]</p>
 
-@if (_error is not null)
-{
-    <p class="notice error" style="white-space:pre-wrap">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 @if (_apps is null)
 {
@@ -82,12 +75,12 @@ else
         </div>
         <p class="hint">@app.Spec.Image:@(app.CurrentTag ?? "-") / @L["Deploy_Pull"]: @app.Spec.Pull / @L["Deploy_Restart"]: @app.Spec.Restart / @L["Deploy_Health"]: @app.Spec.HealthCheckSeconds@L["Deploy_Seconds"]</p>
         <div class="grid-form">
-            <label>@L["Deploy_Tag"]<input @bind="_tag" @bind:event="oninput" placeholder="1.2.3" disabled="@(_busy)" /></label>
+            <label>@L["Deploy_Tag"]<input @bind="_tag" @bind:event="oninput" placeholder="1.2.3" disabled="@(_op.Busy)" /></label>
             <div class="form-actions">
-                <button type="button" class="primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_tag))" @onclick="DeployAsync">
-                    @(_busy ? L["Deploy_Deploying"] : L["Deploy_Run"])
+                <button type="button" class="primary" disabled="@(_op.Busy || string.IsNullOrWhiteSpace(_tag))" @onclick="DeployAsync">
+                    @(_op.Busy ? L["Deploy_Deploying"] : L["Deploy_Run"])
                 </button>
-                @if (app.PreviousTag is not null && !_busy)
+                @if (app.PreviousTag is not null && !_op.Busy)
                 {
                     <ConfirmButton Label="@string.Format(L["Deploy_Rollback"], app.PreviousTag)" OnConfirmed="RollbackAsync" />
                 }
@@ -149,7 +142,7 @@ else
             </label>
             <label>@L["Deploy_Health"]<InputNumber @bind-Value="_form.HealthCheckSeconds" /></label>
             <div class="form-actions">
-                <button type="submit" class="primary" disabled="@_busy">@L["Deploy_Save"]</button>
+                <button type="submit" class="primary" disabled="@_op.Busy">@L["Deploy_Save"]</button>
                 <button type="button" class="link" @onclick="() => _form = null">@L["Common_Cancel"]</button>
                 <span class="hint">@L["Deploy_SaveHint"]</span>
             </div>
@@ -158,17 +151,15 @@ else
 }
 
 @code {
+    private readonly PageOperation _op = new();
     private List<DeploymentView>? _apps;
     private DeploymentView? _selected;
     private AppForm? _form;
     private string? _tag;
-    private string? _error;
-    private string? _message;
-    private bool _busy;
 
     protected override async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         try
         {
             _apps = await Api.GetDeploymentsAsync();
@@ -177,7 +168,7 @@ else
         catch (ApiException ex)
         {
             _apps ??= [];
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
@@ -210,7 +201,7 @@ else
         await Api.SaveDeploymentAsync(new DeploymentSpec(form.Name.Trim(), form.Image.Trim(),
             Lines(form.Ports), Lines(form.Environment), Lines(form.Volumes),
             string.IsNullOrWhiteSpace(form.Pod) ? null : form.Pod.Trim(), form.Restart, form.Pull, form.HealthCheckSeconds));
-        _message = string.Format(L["Deploy_Saved"], form.Name.Trim());
+        _op.Message = string.Format(L["Deploy_Saved"], form.Name.Trim());
         _form = null;
         await LoadAsync();
         _selected = _apps?.FirstOrDefault(a => a.Spec.Name == form.Name.Trim());
@@ -219,14 +210,14 @@ else
     private Task DeployAsync() => RunAsync(async () =>
     {
         var result = await Api.DeployAsync(_selected!.Spec.Name, _tag!.Trim());
-        _message = string.Format(L["Deploy_Done"], $"{result.Spec.Image}:{result.CurrentTag}");
+        _op.Message = string.Format(L["Deploy_Done"], $"{result.Spec.Image}:{result.CurrentTag}");
         _tag = null;
     });
 
     private Task RollbackAsync() => RunAsync(async () =>
     {
         var result = await Api.RollbackAsync(_selected!.Spec.Name);
-        _message = string.Format(L["Deploy_Done"], $"{result.Spec.Image}:{result.CurrentTag}");
+        _op.Message = string.Format(L["Deploy_Done"], $"{result.Spec.Image}:{result.CurrentTag}");
     });
 
     private Task RemoveAsync(bool removeContainer) => RunAsync(async () =>
@@ -234,30 +225,11 @@ else
         var name = _selected!.Spec.Name;
         await Api.RemoveDeploymentAsync(name, removeContainer);
         _selected = null;
-        _message = string.Format(L["Deploy_Removed"], name);
+        _op.Message = string.Format(L["Deploy_Removed"], name);
     });
 
-    private async Task RunAsync(Func<Task> action)
-    {
-        _busy = true;
-        _error = null;
-        _message = null;
-        try
-        {
-            await action();
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _busy = false;
-            var message = _message;
-            await LoadAsync();
-            _message ??= message;
-        }
-    }
+    // 失敗しても読み込み直す（失敗した履歴を表示するため）
+    private Task RunAsync(Func<Task> action) => _op.RunAsync(action, LoadAsync, reloadOnFailure: true);
 
     private static string[] Lines(string text) =>
         text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);

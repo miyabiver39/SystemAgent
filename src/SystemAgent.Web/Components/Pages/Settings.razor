@@ -5,14 +5,7 @@
 
 <h1>@L["Settings_Title"]</h1>
 
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 <section class="card">
     <h2>@L["Db_Title"]</h2>
@@ -39,7 +32,7 @@
                 <dt>@L["Db_Pending"]</dt>
                 <dd>
                     <span class="mono">@string.Join(", ", _db.PendingMigrations)</span>
-                    <button type="button" class="link" disabled="@_busy" @onclick="MigrateAsync">@L["Db_Migrate"]</button>
+                    <button type="button" class="link" disabled="@_op.Busy" @onclick="MigrateAsync">@L["Db_Migrate"]</button>
                 </dd>
             }
         </dl>
@@ -52,22 +45,20 @@
             <label>@L["Db_User"]<InputText @bind-Value="_form.User" autocomplete="off" /></label>
             <label>@L["Login_Password"]<InputText type="password" @bind-Value="_form.Password" autocomplete="new-password" /></label>
             <div class="form-actions">
-                <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Db_Save"])</button>
+                <button type="submit" class="primary" disabled="@_op.Busy">@(_op.Busy ? L["Common_Processing"] : L["Db_Save"])</button>
             </div>
         </EditForm>
     }
 </section>
 
 @code {
+    private readonly PageOperation _op = new();
     private DatabaseSettingsResponse? _db;
-    private string? _error;
-    private string? _message;
-    private bool _busy;
     private DbForm _form = new();
 
     protected override async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         _db = null;
         try
         {
@@ -82,7 +73,7 @@
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
@@ -91,41 +82,30 @@
         if (string.IsNullOrWhiteSpace(_form.Server) || string.IsNullOrWhiteSpace(_form.Database)
             || string.IsNullOrWhiteSpace(_form.User) || string.IsNullOrEmpty(_form.Password))
         {
-            _error = L["Common_RequiredAll"];
+            _op.Error = L["Common_RequiredAll"];
             return;
         }
         await RunAsync(async () =>
         {
             await Api.SetDatabaseAsync(new SetDatabaseRequest(_form.Server.Trim(), _form.Port, _form.Database.Trim(), _form.User.Trim(), _form.Password));
-            _message = L["Db_Saved"];
+            _op.Message = L["Db_Saved"];
         });
     }
 
     private Task MigrateAsync() => RunAsync(async () =>
     {
         await Api.MigrateDatabaseAsync();
-        _message = L["Db_Migrated"];
+        _op.Message = L["Db_Migrated"];
     });
 
     private async Task RunAsync(Func<Task> action)
     {
-        _busy = true;
-        _error = null;
-        _message = null;
         try
         {
-            await action();
-            var message = _message;
-            await LoadAsync();
-            _message = message;
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
+            await _op.RunAsync(action, LoadAsync);
         }
         finally
         {
-            _busy = false;
             _form.Password = "";
         }
     }

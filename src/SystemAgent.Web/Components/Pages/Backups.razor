@@ -6,14 +6,7 @@
 
 <h1>@L["Backups_Title"]</h1>
 
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 @if (_list is null)
 {
@@ -30,8 +23,8 @@
         <dt>@L["Backups_Tool"]</dt><dd>@(_list.Settings.Tool ?? L["Backups_NoTool"])</dd>
     </dl>
     <p class="hint">@L["Backups_SettingsHint"]</p>
-    <button type="button" class="primary" disabled="@(_busy || _list.Settings.Tool is null)" @onclick="CreateAsync">
-        @(_busy ? L["Common_Processing"] : L["Backups_Create"])
+    <button type="button" class="primary" disabled="@(_op.Busy || _list.Settings.Tool is null)" @onclick="CreateAsync">
+        @(_op.Busy ? L["Common_Processing"] : L["Backups_Create"])
     </button>
 </section>
 
@@ -58,8 +51,8 @@
                         <td>@Formatting.Bytes(file.SizeBytes)</td>
                         <td>@Formatting.DateTime(file.CreatedAt)</td>
                         <td>
-                            <button type="button" class="link" disabled="@_busy" @onclick="() => DownloadAsync(file)">@L["Backups_Download"]</button>
-                            <button type="button" class="link" disabled="@_busy" @onclick="() => _restoreTarget = file.Name">@L["Backups_Restore"]</button>
+                            <button type="button" class="link" disabled="@_op.Busy" @onclick="() => DownloadAsync(file)">@L["Backups_Download"]</button>
+                            <button type="button" class="link" disabled="@_op.Busy" @onclick="() => _restoreTarget = file.Name">@L["Backups_Restore"]</button>
                             <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteAsync(file)" />
                         </td>
                     </tr>
@@ -79,23 +72,21 @@
             <input class="mono" @bind="_restoreConfirm" @bind:event="oninput" autocomplete="off" />
         </label>
         <div class="form-actions" style="margin-top:.75rem">
-            <button type="button" class="danger" disabled="@(_busy || _restoreConfirm != _restoreTarget)" @onclick="RestoreAsync">@L["Backups_Restore"]</button>
+            <button type="button" class="danger" disabled="@(_op.Busy || _restoreConfirm != _restoreTarget)" @onclick="RestoreAsync">@L["Backups_Restore"]</button>
             <button type="button" class="link" @onclick="CancelRestore">@L["Common_Cancel"]</button>
         </div>
     </section>
 }
 
 @code {
+    private readonly PageOperation _op = new();
     private BackupListResponse? _list;
-    private string? _error;
-    private string? _message;
-    private bool _busy;
     private string? _restoreTarget;
     private string _restoreConfirm = "";
 
     protected override async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         CancelRestore();
         try
         {
@@ -103,14 +94,14 @@
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
     private Task CreateAsync() => RunAsync(async () =>
     {
         var created = await Api.CreateBackupAsync();
-        _message = string.Format(L["Backups_Created"], created.Name, Formatting.Bytes(created.SizeBytes));
+        _op.Message = string.Format(L["Backups_Created"], created.Name, Formatting.Bytes(created.SizeBytes));
     });
 
     private Task DeleteAsync(BackupFileInfo file) => RunAsync(() => Api.DeleteBackupAsync(file.Name));
@@ -119,12 +110,12 @@
     {
         var name = _restoreTarget!;
         await Api.RestoreBackupAsync(name);
-        _message = string.Format(L["Backups_Restored"], name);
+        _op.Message = string.Format(L["Backups_Restored"], name);
     });
 
     private async Task DownloadAsync(BackupFileInfo file)
     {
-        _error = null;
+        _op.Error = null;
         try
         {
             await using var stream = await Api.DownloadBackupAsync(file.Name);
@@ -133,7 +124,7 @@
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
@@ -143,25 +134,5 @@
         _restoreConfirm = "";
     }
 
-    private async Task RunAsync(Func<Task> action)
-    {
-        _busy = true;
-        _error = null;
-        _message = null;
-        try
-        {
-            await action();
-            var message = _message;
-            await LoadAsync();
-            _message = message;
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.Message;
-        }
-        finally
-        {
-            _busy = false;
-        }
-    }
+    private Task RunAsync(Func<Task> action) => _op.RunAsync(action, LoadAsync);
 }

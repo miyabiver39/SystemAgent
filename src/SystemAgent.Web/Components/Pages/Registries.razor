@@ -7,14 +7,7 @@
 <h1>@L["Registries_Title"]</h1>
 <p class="hint">@L["Registries_Hint"]</p>
 
-@if (_error is not null)
-{
-    <p class="notice error">@_error</p>
-}
-@if (_message is not null)
-{
-    <p class="notice ok">@_message</p>
-}
+<OperationNotices Operation="_op" />
 
 @if (_registries is null)
 {
@@ -129,15 +122,14 @@ else
 </section>
 
 @code {
+    private readonly PageOperation _op = new();
     private List<RegistryView>? _registries;
-    private string? _error;
-    private string? _message;
     private string? _busy;
     private RegistryForm _form = new();
 
     protected override async Task LoadAsync()
     {
-        _error = null;
+        _op.Error = null;
         _registries = null;
         try
         {
@@ -145,7 +137,7 @@ else
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
@@ -156,37 +148,29 @@ else
     {
         await Api.SaveRegistryAsync(new SaveRegistryRequest(_form.Registry.Trim(), _form.Username.Trim(),
             string.IsNullOrEmpty(_form.Password) ? null : _form.Password, !_form.SkipTlsVerify));
-        _message = string.Format(L["Registries_Saved"], _form.Registry.Trim());
+        _op.Message = string.Format(L["Registries_Saved"], _form.Registry.Trim());
         _form = new RegistryForm();
     });
 
     private Task RetestAsync(RegistryView registry) => RunAsync(registry.Registry, async () =>
     {
         await Api.SaveRegistryAsync(new SaveRegistryRequest(registry.Registry, registry.Username, null, registry.TlsVerify));
-        _message = string.Format(L["Registries_Saved"], registry.Registry);
+        _op.Message = string.Format(L["Registries_Saved"], registry.Registry);
     });
 
     private Task RemoveAsync(string registry) => RunAsync(registry, async () =>
     {
         await Api.RemoveRegistryAsync(registry);
-        _message = string.Format(L["Registries_Removed"], registry);
+        _op.Message = string.Format(L["Registries_Removed"], registry);
     });
 
     private async Task RunAsync(string key, Func<Task> action)
     {
         _busy = key;
-        _error = null;
-        _message = null;
         try
         {
-            await action();
-            var message = _message;
-            await LoadAsync();
-            _message = message;
-        }
-        catch (ApiException ex)
-        {
-            _error = ex.StatusCode == HttpStatusCode.UnprocessableEntity ? $"{L["Registries_LoginFailed"]} {ex.Message}" : ex.Message;
+            await _op.RunAsync(action, LoadAsync, describeError: ex =>
+                ex.StatusCode == HttpStatusCode.UnprocessableEntity ? $"{L["Registries_LoginFailed"]} {ex.Message}" : ex.Message);
         }
         finally
         {
@@ -213,7 +197,7 @@ else
 
     private async Task BrowseAsync(string registry)
     {
-        _error = null;
+        _op.Error = null;
         _browse = new BrowseState(registry);
         try
         {
@@ -222,36 +206,36 @@ else
         catch (ApiException ex)
         {
             _browse = null;
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
     private async Task LoadTagsAsync(BrowseState browse, string repository)
     {
-        _error = null;
+        _op.Error = null;
         try
         {
             browse.Tags[repository] = (await Api.GetRegistryTagsAsync(browse.Registry, repository)).Tags;
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 
     private async Task DeleteTagAsync(BrowseState browse, string repository, string tag)
     {
-        _error = null;
-        _message = null;
+        _op.Error = null;
+        _op.Message = null;
         try
         {
             await Api.DeleteRegistryTagAsync(browse.Registry, repository, tag);
-            _message = string.Format(L["Registries_TagDeleted"], $"{browse.Registry}/{repository}:{tag}");
+            _op.Message = string.Format(L["Registries_TagDeleted"], $"{browse.Registry}/{repository}:{tag}");
             await LoadTagsAsync(browse, repository);
         }
         catch (ApiException ex)
         {
-            _error = ex.Message;
+            _op.Error = ex.Message;
         }
     }
 }
