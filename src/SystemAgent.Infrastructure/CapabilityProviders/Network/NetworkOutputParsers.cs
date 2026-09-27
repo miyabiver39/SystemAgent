@@ -82,8 +82,13 @@ public static class NetworkOutputParsers
         _ => InterfaceKind.Other,
     };
 
-    private static IEnumerable<JsonElement> Array(string json) =>
-        string.IsNullOrWhiteSpace(json) ? [] : JsonDocument.Parse(json).RootElement.EnumerateArray().Select(e => e.Clone()).ToList();
+    // JsonDocument はプールしたバッファを使うため、要素を Clone して取り出したらすぐに Dispose する
+    private static IEnumerable<JsonElement> Array(string json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return [];
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.EnumerateArray().Select(e => e.Clone()).ToList();
+    }
 
     private static string? String(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
