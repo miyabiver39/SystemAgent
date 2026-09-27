@@ -182,7 +182,7 @@ public sealed class ClusterService(
             SslOptions =
             {
                 RemoteCertificateValidationCallback = (_, certificate, _, _) =>
-                    certificate is not null && Pki.ValidateNodeCertificate(Pki.AsCertificate2(certificate), ca) is not null,
+                    certificate is not null && Pki.ValidateNodeCertificate(certificate, ca, NodeCertificateUsage.Server) is not null,
             },
         }) { BaseAddress = new Uri(token.CaUrl), Timeout = TimeSpan.FromSeconds(60) };
 
@@ -198,7 +198,9 @@ public sealed class ClusterService(
         var enrolled = (await response.Content.ReadFromJsonAsync<EnrollResponse>(cancellationToken))!;
 
         using var issued = X509Certificate2.CreateFromPem(enrolled.NodeCertificatePem);
-        if (Pki.ValidateNodeCertificate(issued, ca) != enrolled.NodeId)
+        // 受け取った証明書はサーバー・クライアントの両方に使う
+        if (Pki.ValidateNodeCertificate(issued, ca, NodeCertificateUsage.Server) != enrolled.NodeId
+            || Pki.ValidateNodeCertificate(issued, ca, NodeCertificateUsage.Client) != enrolled.NodeId)
             throw new ClusterStateException("CAノードから受け取った証明書が不正です。");
 
         identity.Save(enrolled.ClusterName, enrolled.NodeId, enrolled.NodeCertificatePem, key, ca.ExportCertificatePem(), null);

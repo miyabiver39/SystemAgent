@@ -27,7 +27,7 @@ public sealed class NodeCertificateAuthenticationHandler(
         if (certificate is null) return AuthenticateResult.NoResult();
 
         if (identity.Current is not { } current) return AuthenticateResult.Fail("このノードはクラスタに参加していません。");
-        if (Pki.ValidateNodeCertificate(certificate, current.CaCertificate) is not { } nodeId)
+        if (Pki.ValidateNodeCertificate(certificate, current.CaCertificate, NodeCertificateUsage.Client) is not { } nodeId)
             return AuthenticateResult.Fail("クラスタCAで署名されたノード証明書ではありません。");
 
         var actor = Request.Headers[ClusterHttpClientFactory.ActorHeader].FirstOrDefault() is { Length: > 0 and <= 200 } header
