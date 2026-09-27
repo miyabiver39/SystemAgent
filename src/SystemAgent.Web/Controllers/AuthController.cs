@@ -40,7 +40,7 @@ public class AuthController(
     [Authorize]
     [HttpGet("me")]
     public ActionResult<MeResponse> Me() =>
-        new MeResponse(User.Identity!.Name!, User.FindFirst(AuthConstants.AuthSourceClaim)!.Value);
+        new MeResponse(User.ActorName(), User.FindFirst(AuthConstants.AuthSourceClaim)!.Value);
 
     [Authorize]
     [HttpPut("emergency-users/{userName}/password")]
@@ -49,7 +49,7 @@ public class AuthController(
     {
         if (!secrets.ChangeEmergencyPassword(userName, request.NewPassword)) return NotFound();
 
-        await audit.LogAsync(User.Identity!.Name!, "secret.emergency-password.change", userName, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "secret.emergency-password.change", userName, cancellationToken);
         return NoContent();
     }
 }

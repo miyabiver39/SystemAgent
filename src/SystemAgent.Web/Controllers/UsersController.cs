@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Users;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -20,7 +21,7 @@ public class UsersController(IUserService users, IAuditLogger audit) : Controlle
         var created = await users.CreateAsync(request.UserName, request.Password, cancellationToken);
         if (created is null) return Conflict();
 
-        await audit.LogAsync(User.Identity!.Name!, "user.create", request.UserName, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "user.create", request.UserName, cancellationToken);
         return Created($"/api/users/{created.UserName}", created);
     }
 
@@ -29,7 +30,7 @@ public class UsersController(IUserService users, IAuditLogger audit) : Controlle
     {
         if (!await users.ChangePasswordAsync(userName, request.NewPassword, cancellationToken)) return NotFound();
 
-        await audit.LogAsync(User.Identity!.Name!, "user.password.change", userName, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "user.password.change", userName, cancellationToken);
         return NoContent();
     }
 
@@ -38,7 +39,7 @@ public class UsersController(IUserService users, IAuditLogger audit) : Controlle
     {
         if (!await users.DeleteAsync(userName, cancellationToken)) return NotFound();
 
-        await audit.LogAsync(User.Identity!.Name!, "user.delete", userName, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "user.delete", userName, cancellationToken);
         return NoContent();
     }
 }

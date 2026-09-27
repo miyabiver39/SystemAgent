@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -25,7 +26,7 @@ public class NtpController(NtpResolver resolver, IAuditLogger audit) : Controlle
     {
         var ntp = await resolver.ResolveAsync(cancellationToken);
         await ntp.SetServersAsync(request.Servers, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "ntp.servers.set",
+        await audit.LogAsync(User.ActorName(), "ntp.servers.set",
             $"{ntp.Implementation.Name}: {string.Join(", ", request.Servers)}", cancellationToken);
         return NoContent();
     }
@@ -35,7 +36,7 @@ public class NtpController(NtpResolver resolver, IAuditLogger audit) : Controlle
     {
         var ntp = await resolver.ResolveAsync(cancellationToken);
         await ntp.SyncNowAsync(cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "ntp.sync", ntp.Implementation.Name, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "ntp.sync", ntp.Implementation.Name, cancellationToken);
         return NoContent();
     }
 }

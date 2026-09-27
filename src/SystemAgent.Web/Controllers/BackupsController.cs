@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.Backup;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -20,7 +21,7 @@ public class BackupsController(BackupService backups, IAuditLogger audit) : Cont
     public async Task<BackupFileInfo> Create(CancellationToken cancellationToken)
     {
         var created = await backups.CreateAsync(cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "backup.create", created.Name, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "backup.create", created.Name, cancellationToken);
         return created;
     }
 
@@ -29,7 +30,7 @@ public class BackupsController(BackupService backups, IAuditLogger audit) : Cont
     public async Task<IActionResult> Download(string name, CancellationToken cancellationToken)
     {
         if (!BackupService.IsValidName(name) || !backups.List().Any(b => b.Name == name)) return NotFound();
-        await audit.LogAsync(User.Identity!.Name!, "backup.download", name, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "backup.download", name, cancellationToken);
         return File(backups.OpenRead(name), "application/gzip", name);
     }
 
@@ -37,7 +38,7 @@ public class BackupsController(BackupService backups, IAuditLogger audit) : Cont
     public async Task<IActionResult> Delete(string name, CancellationToken cancellationToken)
     {
         if (!backups.Delete(name)) return NotFound();
-        await audit.LogAsync(User.Identity!.Name!, "backup.delete", name, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "backup.delete", name, cancellationToken);
         return NoContent();
     }
 
@@ -50,7 +51,7 @@ public class BackupsController(BackupService backups, IAuditLogger audit) : Cont
         if (!backups.List().Any(b => b.Name == name)) return NotFound();
 
         await backups.RestoreAsync(name, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "backup.restore", name, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "backup.restore", name, cancellationToken);
         return NoContent();
     }
 }

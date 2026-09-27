@@ -52,7 +52,7 @@ public class NodeProxyController(NodeForwarder forwarder, ClusterEndpointSetting
     /// <summary>転送先の監査ログに残す操作者。すでに他ノード経由の操作者名ならそのまま。</summary>
     private string Actor()
     {
-        var name = User.Identity!.Name!;
+        var name = User.ActorName();
         return User.FindFirst(AuthConstants.AuthSourceClaim)?.Value == "node" ? name : $"{name}@{endpoint.NodeName}";
     }
 }

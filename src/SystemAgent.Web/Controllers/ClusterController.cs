@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.Cluster;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -20,7 +21,7 @@ public class ClusterController(ClusterService cluster, ClusterEndpointSettings e
     public async Task<ClusterStatusResponse> Initialize(InitializeClusterRequest request, CancellationToken cancellationToken)
     {
         var status = await cluster.InitializeAsync(request.ClusterName, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "cluster.init", $"{request.ClusterName} ({status.NodeId})", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "cluster.init", $"{request.ClusterName} ({status.NodeId})", cancellationToken);
         return status;
     }
 
@@ -28,8 +29,8 @@ public class ClusterController(ClusterService cluster, ClusterEndpointSettings e
     [HttpPost("tokens")]
     public async Task<JoinTokenResponse> CreateToken(CreateJoinTokenRequest request, CancellationToken cancellationToken)
     {
-        var token = await cluster.CreateJoinTokenAsync(User.Identity!.Name!, request.ValidMinutes, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "cluster.token.create", $"expires {token.ExpiresAt:O}", cancellationToken);
+        var token = await cluster.CreateJoinTokenAsync(User.ActorName(), request.ValidMinutes, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "cluster.token.create", $"expires {token.ExpiresAt:O}", cancellationToken);
         return token;
     }
 
@@ -38,7 +39,7 @@ public class ClusterController(ClusterService cluster, ClusterEndpointSettings e
     public async Task<ClusterStatusResponse> Join(JoinClusterRequest request, CancellationToken cancellationToken)
     {
         var status = await cluster.JoinAsync(request.Token, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "cluster.join", $"{status.ClusterName} ({status.NodeId})", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "cluster.join", $"{status.ClusterName} ({status.NodeId})", cancellationToken);
         return status;
     }
 

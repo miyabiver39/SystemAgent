@@ -4,6 +4,7 @@ using SystemAgent.Core.Auditing;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -53,7 +54,7 @@ public class ContainersController(ContainerRuntimeResolver resolver, IAuditLogge
     {
         var runtime = await resolver.ResolveAsync(cancellationToken);
         await operation(runtime, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, action, $"{runtime.Runtime.Name}: {id}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), action, $"{runtime.Runtime.Name}: {id}", cancellationToken);
         return NoContent();
     }
 }

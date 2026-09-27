@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.Persistence;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -39,7 +40,7 @@ public class DatabaseController(
 
         connection.Save(connectionString);
         await MigratorAsync(async m => { await m.MigrateAsync(cancellationToken); return 0; });
-        await audit.LogAsync(User.Identity!.Name!, "secret.database.set",
+        await audit.LogAsync(User.ActorName(), "secret.database.set",
             $"{request.User}@{request.Server}:{request.Port}/{request.Database}", cancellationToken);
         return NoContent();
     }
@@ -50,7 +51,7 @@ public class DatabaseController(
     {
         var pending = await MigratorAsync(m => m.PendingAsync(cancellationToken));
         await MigratorAsync(async m => { await m.MigrateAsync(cancellationToken); return 0; });
-        await audit.LogAsync(User.Identity!.Name!, "database.migrate", string.Join(", ", pending), cancellationToken);
+        await audit.LogAsync(User.ActorName(), "database.migrate", string.Join(", ", pending), cancellationToken);
         return NoContent();
     }
 

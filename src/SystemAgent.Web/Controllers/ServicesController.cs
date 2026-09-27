@@ -4,6 +4,7 @@ using SystemAgent.Core.Auditing;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Services;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -43,7 +44,7 @@ public class ServicesController(ServiceManagement management, IAuditLogger audit
         if (management.Deny(unit, operation) is { } reason) return Problem(statusCode: StatusCodes.Status403Forbidden, detail: reason);
 
         await (await management.ResolveAsync(cancellationToken)).ExecuteAsync(unit, operation, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, $"service.{operation.ToString().ToLowerInvariant()}", unit, cancellationToken);
+        await audit.LogAsync(User.ActorName(), $"service.{operation.ToString().ToLowerInvariant()}", unit, cancellationToken);
         return NoContent();
     }
 

@@ -5,6 +5,7 @@ using MySqlConnector;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.Ha;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -45,7 +46,7 @@ public class HaController(HaService ha, IAuditLogger audit) : ControllerBase
             request.ReturnMode, localDb, request.ReplicationUser, request.ReplicationPassword,
             request.ReplicationSourcePort > 0 ? request.ReplicationSourcePort : 3306,
             string.IsNullOrWhiteSpace(request.ReplicationSourceHost) ? null : request.ReplicationSourceHost.Trim()));
-        await audit.LogAsync(User.Identity!.Name!, "ha.settings.save", $"VIP {request.VirtualIp} VRID {request.VirtualRouterId} priority {request.Priority}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "ha.settings.save", $"VIP {request.VirtualIp} VRID {request.VirtualRouterId} priority {request.Priority}", cancellationToken);
 
         if (request.Apply) await ApplyCoreAsync(cancellationToken);
         return NoContent();
@@ -63,7 +64,7 @@ public class HaController(HaService ha, IAuditLogger audit) : ControllerBase
     public async Task<IActionResult> Rejoin(CancellationToken cancellationToken)
     {
         await ha.ApproveRejoinAsync(cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "ha.rejoin", null, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "ha.rejoin", null, cancellationToken);
         return NoContent();
     }
 
@@ -87,7 +88,7 @@ public class HaController(HaService ha, IAuditLogger audit) : ControllerBase
     private async Task ApplyCoreAsync(CancellationToken cancellationToken)
     {
         await ha.ApplyAsync(cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "ha.apply", null, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "ha.apply", null, cancellationToken);
     }
 
     private static HaSettingsView? View(HaSettings? s) => s is null ? null : new HaSettingsView(

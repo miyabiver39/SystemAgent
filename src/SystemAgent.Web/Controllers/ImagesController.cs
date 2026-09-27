@@ -7,6 +7,7 @@ using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Web.Api;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -27,7 +28,7 @@ public class ImagesController(
         var runtime = await resolver.ResolveAsync(cancellationToken);
         var tlsVerify = await registries.EnsureLoginAsync(runtime, request.Image, cancellationToken);
         await runtime.PullImageAsync(request.Image, tlsVerify, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "image.pull", $"{runtime.Runtime.Name}: {request.Image}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "image.pull", $"{runtime.Runtime.Name}: {request.Image}", cancellationToken);
         return NoContent();
     }
 
@@ -64,7 +65,7 @@ public class ImagesController(
             // 送るためだけに付けた名前は外す（イメージ本体は元の名前で残る）
             if (tagged) await runtime.RemoveImageAsync(target, CancellationToken.None);
         }
-        await audit.LogAsync(User.Identity!.Name!, "image.push", $"{runtime.Runtime.Name}: {image} → {target}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "image.push", $"{runtime.Runtime.Name}: {image} → {target}", cancellationToken);
         return NoContent();
     }
 
@@ -76,7 +77,7 @@ public class ImagesController(
         id = Uri.UnescapeDataString(id);
         var runtime = await resolver.ResolveAsync(cancellationToken);
         await runtime.RemoveImageAsync(id, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "image.remove", $"{runtime.Runtime.Name}: {id}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "image.remove", $"{runtime.Runtime.Name}: {id}", cancellationToken);
         return NoContent();
     }
 
@@ -98,7 +99,7 @@ public class ImagesController(
         if (contentType.MediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
         {
             var name = Uri.UnescapeDataString(Request.Headers[FileNameHeader].FirstOrDefault() ?? "image.tar");
-            return new ImportImageResponse(await importer.ImportAsync(Request.Body, name, User.Identity!.Name!, cancellationToken));
+            return new ImportImageResponse(await importer.ImportAsync(Request.Body, name, User.ActorName(), cancellationToken));
         }
 
         if (!contentType.MediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
@@ -114,7 +115,7 @@ public class ImagesController(
                 || !disposition.IsFileDisposition()) continue;
 
             var fileName = disposition.FileName.Value ?? disposition.FileNameStar.Value ?? "image.tar";
-            return new ImportImageResponse(await importer.ImportAsync(section.Body, fileName, User.Identity!.Name!, cancellationToken));
+            return new ImportImageResponse(await importer.ImportAsync(section.Body, fileName, User.ActorName(), cancellationToken));
         }
         return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "ファイルが含まれていません。");
     }

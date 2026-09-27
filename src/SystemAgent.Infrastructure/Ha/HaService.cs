@@ -3,7 +3,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SystemAgent.Core.Auditing;
-using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Ha;
 using SystemAgent.Core.Nodes;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;

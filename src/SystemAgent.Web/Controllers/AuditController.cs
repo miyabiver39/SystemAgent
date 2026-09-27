@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.Auditing;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -23,7 +24,7 @@ public class AuditController(AuditLogReader reader, IAuditLogger audit) : Contro
     [HttpGet("export")]
     public async Task Export([FromQuery] AuditLogQuery query, CancellationToken cancellationToken)
     {
-        await audit.LogAsync(User.Identity!.Name!, "audit.export", Describe(query), cancellationToken);
+        await audit.LogAsync(User.ActorName(), "audit.export", Describe(query), cancellationToken);
         Response.ContentType = "text/csv; charset=utf-8";
         Response.Headers.ContentDisposition = $"attachment; filename=\"audit-{DateTime.Now:yyyyMMdd-HHmmss}.csv\"";
         await reader.ExportCsvAsync(query, Response.Body, cancellationToken);

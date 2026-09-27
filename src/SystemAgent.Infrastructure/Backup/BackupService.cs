@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using MySqlConnector;
-using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;

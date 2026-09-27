@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Nodes;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -25,7 +26,7 @@ public class NodesController(INodeService nodes, IAuditLogger audit) : Controlle
     {
         if (!await nodes.DeleteAsync(id, cancellationToken)) return NotFound();
 
-        await audit.LogAsync(User.Identity!.Name!, "node.delete", id.ToString(), cancellationToken);
+        await audit.LogAsync(User.ActorName(), "node.delete", id.ToString(), cancellationToken);
         return NoContent();
     }
 }

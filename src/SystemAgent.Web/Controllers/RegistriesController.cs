@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -22,7 +23,7 @@ public class RegistriesController(
     {
         var runtime = await resolver.ResolveAsync(cancellationToken);
         var registry = await registries.SaveAsync(runtime, request.Registry, request.Username, request.Password, request.TlsVerify, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "registry.login", $"{runtime.Runtime.Name}: {request.Username}@{registry}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "registry.login", $"{runtime.Runtime.Name}: {request.Username}@{registry}", cancellationToken);
         return NoContent();
     }
 
@@ -40,7 +41,7 @@ public class RegistriesController(
     public async Task<IActionResult> DeleteTag(string registry, [FromQuery] string repository, [FromQuery] string tag, CancellationToken cancellationToken)
     {
         await browser.DeleteTagAsync(registry, repository, tag, cancellationToken);
-        await audit.LogAsync(User.Identity!.Name!, "registry.tag.delete", $"{registry}/{repository}:{tag}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "registry.tag.delete", $"{registry}/{repository}:{tag}", cancellationToken);
         return NoContent();
     }
 
@@ -49,7 +50,7 @@ public class RegistriesController(
     {
         var runtime = await resolver.ResolveAsync(cancellationToken);
         if (!await registries.RemoveAsync(runtime, registry, cancellationToken)) return NotFound();
-        await audit.LogAsync(User.Identity!.Name!, "registry.logout", $"{runtime.Runtime.Name}: {registry}", cancellationToken);
+        await audit.LogAsync(User.ActorName(), "registry.logout", $"{runtime.Runtime.Name}: {registry}", cancellationToken);
         return NoContent();
     }
 }
