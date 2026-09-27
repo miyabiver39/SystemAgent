@@ -99,6 +99,10 @@ public sealed class DbRoleManager
         await using var connection = await OpenAsync(connectionString, cancellationToken);
         await ExecuteAsync(connection, "SET GLOBAL read_only = ON", cancellationToken);
         await ExecuteAsync(connection, "STOP SLAVE", cancellationToken);
+        // CHANGE MASTER TO はサーバー側のプリペアドステートメントには使えないが、MySqlConnector は Prepare() を呼ばない限り
+        // パラメータをクライアント側で安全にエスケープしたリテラルに置き換えて送る（テキストプロトコル）。そのためこの書き方で動作し、
+        // パスワード等に引用符が含まれても構文が壊れない。Prepare() は呼ばないこと。
+        // MariaDB には MySQL 8.0.23 以降の CHANGE REPLICATION SOURCE TO は無く、MASTER_USE_GTID も MariaDB 固有のため旧構文を使う
         await using (var change = new MySqlCommand(
             "CHANGE MASTER TO MASTER_HOST=@host, MASTER_PORT=@port, MASTER_USER=@user, MASTER_PASSWORD=@password, " +
             "MASTER_USE_GTID=current_pos, MASTER_CONNECT_RETRY=10", connection))
