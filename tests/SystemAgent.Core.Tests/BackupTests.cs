@@ -126,6 +126,35 @@ public sealed class BackupTests : IDisposable
     }
 
     [Fact]
+    public void ThrottledStream_SyncWriteIsLimitedToo()
+    {
+        using var target = new MemoryStream();
+        using var throttled = new ThrottledStream(target, bytesPerSecond: 200_000);
+        var watch = Stopwatch.StartNew();
+
+        throttled.Write(new byte[100_000]);
+
+        Assert.InRange(watch.Elapsed.TotalSeconds, 0.4, 3);
+        Assert.Equal(100_000, target.Length);
+    }
+
+    [Fact]
+    public async Task ThrottledStream_IdleTimeDoesNotAllowUnlimitedBurst()
+    {
+        using var target = new MemoryStream();
+        await using var throttled = new ThrottledStream(target, bytesPerSecond: 500_000);
+        await throttled.WriteAsync(new byte[1]);
+
+        // 転送が止まっていた2秒分を後から一気に流さない（余裕は最大1秒分 = 500KB）
+        await Task.Delay(TimeSpan.FromSeconds(2));
+        var watch = Stopwatch.StartNew();
+        await throttled.WriteAsync(new byte[1_000_000]);
+
+        // 1MB - 余裕500KB = 500KB 分（約1秒）待つ
+        Assert.InRange(watch.Elapsed.TotalSeconds, 0.8, 3);
+    }
+
+    [Fact]
     public async Task ThrottledStream_ZeroMeansUnlimited()
     {
         using var target = new MemoryStream();
@@ -141,6 +170,17 @@ public sealed class BackupTests : IDisposable
     [InlineData("2026-09-27T04:00:00+09:00", "03:00", 23)]
     public void Scheduler_NextDelay(string now, string at, int expectedHours) =>
         Assert.Equal(TimeSpan.FromHours(expectedHours), BackupScheduler.NextDelay(DateTimeOffset.Parse(now), TimeOnly.Parse(at)));
+
+    [Fact]
+    public void Scheduler_NextDelay_TimerFiredSlightlyEarly_DoesNotRunTwiceSameDay()
+    {
+        // 03:00 の実行がタイマーの誤差で数ミリ秒早く終わった直後
+        var now = DateTimeOffset.Parse("2026-09-27T02:59:59.995+09:00");
+        var at = TimeOnly.Parse("03:00");
+
+        Assert.Equal(TimeSpan.FromMilliseconds(5), BackupScheduler.NextDelay(now, at));
+        Assert.Equal(TimeSpan.FromMilliseconds(5) + TimeSpan.FromDays(1), BackupScheduler.NextDelay(now, at, DateOnly.Parse("2026-09-27")));
+    }
 
     private sealed class FixedDetector : IEnvironmentDetector
     {
