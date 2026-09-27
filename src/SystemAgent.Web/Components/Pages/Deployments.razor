@@ -231,8 +231,11 @@ else
     // 失敗しても読み込み直す（失敗した履歴を表示するため）
     private Task RunAsync(Func<Task> action) => _op.RunAsync(action, LoadAsync, reloadOnFailure: true);
 
-    private static string[] Lines(string text) =>
-        text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+    // 入力欄の値はバインド前などに null になり得るため、null・空白のみは空の一覧として扱う
+    private static string[] Lines(string? text) =>
+        string.IsNullOrWhiteSpace(text)
+            ? []
+            : text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
     private sealed class AppForm
     {
