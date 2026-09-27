@@ -1,0 +1,278 @@
+@page "/deployments"
+@using SystemAgent.Core.CapabilityProviders
+@using SystemAgent.Core.Deploy
+@inherits NodeScopedPage
+
+<PageTitle>@L["Deploy_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Deploy_Title"]</h1>
+<p class="hint">@L["Deploy_Hint"]</p>
+
+@if (_error is not null)
+{
+    <p class="notice error" style="white-space:pre-wrap">@_error</p>
+}
+@if (_message is not null)
+{
+    <p class="notice ok">@_message</p>
+}
+
+@if (_apps is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+}
+else
+{
+    <div class="section-header">
+        <h2>@L["Deploy_Apps"]</h2>
+        <button type="button" class="link" @onclick="LoadAsync">@L["Common_Reload"]</button>
+        <button type="button" class="link" @onclick="NewApp">@L["Deploy_New"]</button>
+    </div>
+    @if (_apps.Count == 0)
+    {
+        <p class="muted">@L["Deploy_Empty"]</p>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr>
+                    <th>@L["Deploy_App"]</th><th>@L["Deploy_Image"]</th><th>@L["Deploy_Current"]</th><th>@L["Deploy_Previous"]</th>
+                    <th>@L["Containers_State"]</th><th>@L["Deploy_LastDeployed"]</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var a in _apps)
+                {
+                    <tr @key="a.Spec.Name">
+                        <td>@a.Spec.Name</td>
+                        <td>@a.Spec.Image</td>
+                        <td>@(a.CurrentTag ?? "-")</td>
+                        <td>@(a.PreviousTag ?? "-")</td>
+                        <td>
+                            @if (a.Deploying)
+                            {
+                                <span class="badge state-restarting">@L["Deploy_Deploying"]</span>
+                            }
+                            else if (a.State is { } state)
+                            {
+                                <span class="badge state-@state.ToString().ToLowerInvariant()">@state</span>
+                            }
+                            else
+                            {
+                                <span class="muted">@L["Deploy_NoContainer"]</span>
+                            }
+                        </td>
+                        <td>@Formatting.DateTime(a.LastDeployedAt)</td>
+                        <td><button type="button" class="link" @onclick="() => Select(a)">@L["Deploy_Open"]</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+}
+
+@if (_selected is { } app)
+{
+    <section class="card">
+        <div class="section-header">
+            <h2>@app.Spec.Name</h2>
+            <button type="button" class="link" @onclick="() => Edit(app)">@L["Registries_Edit"]</button>
+            <button type="button" class="link" @onclick="() => _selected = null">@L["Common_Close"]</button>
+        </div>
+        <p class="hint">@app.Spec.Image:@(app.CurrentTag ?? "-") / @L["Deploy_Pull"]: @app.Spec.Pull / @L["Deploy_Restart"]: @app.Spec.Restart / @L["Deploy_Health"]: @app.Spec.HealthCheckSeconds@L["Deploy_Seconds"]</p>
+        <div class="grid-form">
+            <label>@L["Deploy_Tag"]<input @bind="_tag" @bind:event="oninput" placeholder="1.2.3" disabled="@(_busy)" /></label>
+            <div class="form-actions">
+                <button type="button" class="primary" disabled="@(_busy || string.IsNullOrWhiteSpace(_tag))" @onclick="DeployAsync">
+                    @(_busy ? L["Deploy_Deploying"] : L["Deploy_Run"])
+                </button>
+                @if (app.PreviousTag is not null && !_busy)
+                {
+                    <ConfirmButton Label="@string.Format(L["Deploy_Rollback"], app.PreviousTag)" OnConfirmed="RollbackAsync" />
+                }
+                <span class="hint">@L["Deploy_RunHint"]</span>
+            </div>
+        </div>
+        @if (app.History.Count > 0)
+        {
+            <h3>@L["Ha_History"]</h3>
+            <table>
+                <tbody>
+                    @foreach (var e in app.History)
+                    {
+                        <tr>
+                            <td style="white-space:nowrap">@Formatting.DateTime(e.At)</td>
+                            <td>@e.User</td>
+                            <td>@(e.Action == "rollback" ? L["Deploy_ActionRollback"] : L["Deploy_ActionDeploy"])</td>
+                            <td style="white-space:nowrap">@(e.FromTag ?? "-") → @e.ToTag</td>
+                            <td><span class="badge @(e.Success ? "state-running" : "state-exited")">@(e.Success ? L["Deploy_Success"] : L["Deploy_Failed"])</span></td>
+                            <td style="white-space:pre-wrap">@e.Message</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+        <p>
+            <ConfirmButton Label="@L["Deploy_RemoveDefinition"]" OnConfirmed="() => RemoveAsync(false)" />
+            <ConfirmButton Label="@L["Deploy_RemoveWithContainer"]" OnConfirmed="() => RemoveAsync(true)" />
+        </p>
+    </section>
+}
+
+@if (_form is not null)
+{
+    <section class="card">
+        <h2>@(_form.IsNew ? L["Deploy_New"] : string.Format(L["Deploy_EditTitle"], _form.Name))</h2>
+        <EditForm Model="_form" OnSubmit="SaveAsync" FormName="deployment" class="grid-form">
+            <label>@L["Deploy_App"]<InputText @bind-Value="_form.Name" disabled="@(!_form.IsNew)" placeholder="web" /></label>
+            <label>@L["Deploy_ImageNoTag"]<InputText @bind-Value="_form.Image" placeholder="registry.example.com/app/web" /></label>
+            <label>@L["Deploy_Ports"]<InputTextArea @bind-Value="_form.Ports" rows="3" placeholder="8080:80" /></label>
+            <label>@L["Deploy_Env"]<InputTextArea @bind-Value="_form.Environment" rows="3" placeholder="TZ=Asia/Tokyo" /></label>
+            <label>@L["Deploy_Volumes"]<InputTextArea @bind-Value="_form.Volumes" rows="3" placeholder="/srv/web/data:/data" /></label>
+            <label>@L["Deploy_Pod"]<InputText @bind-Value="_form.Pod" /></label>
+            <label>
+                @L["Deploy_Restart"]
+                <InputSelect @bind-Value="_form.Restart">
+                    <option value="always">always</option>
+                    <option value="unless-stopped">unless-stopped</option>
+                    <option value="on-failure">on-failure</option>
+                    <option value="no">no</option>
+                </InputSelect>
+            </label>
+            <label>
+                @L["Deploy_Pull"]
+                <InputSelect @bind-Value="_form.Pull">
+                    <option value="@PullPolicy.Missing">@L["Deploy_PullMissing"]</option>
+                    <option value="@PullPolicy.Always">@L["Deploy_PullAlways"]</option>
+                </InputSelect>
+            </label>
+            <label>@L["Deploy_Health"]<InputNumber @bind-Value="_form.HealthCheckSeconds" /></label>
+            <div class="form-actions">
+                <button type="submit" class="primary" disabled="@_busy">@L["Deploy_Save"]</button>
+                <button type="button" class="link" @onclick="() => _form = null">@L["Common_Cancel"]</button>
+                <span class="hint">@L["Deploy_SaveHint"]</span>
+            </div>
+        </EditForm>
+    </section>
+}
+
+@code {
+    private List<DeploymentView>? _apps;
+    private DeploymentView? _selected;
+    private AppForm? _form;
+    private string? _tag;
+    private string? _error;
+    private string? _message;
+    private bool _busy;
+
+    protected override async Task LoadAsync()
+    {
+        _error = null;
+        try
+        {
+            _apps = await Api.GetDeploymentsAsync();
+            if (_selected is not null) _selected = _apps.FirstOrDefault(a => a.Spec.Name == _selected.Spec.Name);
+        }
+        catch (ApiException ex)
+        {
+            _apps ??= [];
+            _error = ex.Message;
+        }
+    }
+
+    private void Select(DeploymentView app)
+    {
+        _selected = app;
+        _tag = null;
+        _form = null;
+    }
+
+    private void NewApp()
+    {
+        _selected = null;
+        _form = new AppForm { IsNew = true };
+    }
+
+    private void Edit(DeploymentView app)
+    {
+        var s = app.Spec;
+        _form = new AppForm
+        {
+            Name = s.Name, Image = s.Image, Ports = string.Join('\n', s.Ports), Environment = string.Join('\n', s.Environment),
+            Volumes = string.Join('\n', s.Volumes), Pod = s.Pod ?? "", Restart = s.Restart, Pull = s.Pull, HealthCheckSeconds = s.HealthCheckSeconds,
+        };
+    }
+
+    private Task SaveAsync() => RunAsync(async () =>
+    {
+        var form = _form!;
+        await Api.SaveDeploymentAsync(new DeploymentSpec(form.Name.Trim(), form.Image.Trim(),
+            Lines(form.Ports), Lines(form.Environment), Lines(form.Volumes),
+            string.IsNullOrWhiteSpace(form.Pod) ? null : form.Pod.Trim(), form.Restart, form.Pull, form.HealthCheckSeconds));
+        _message = string.Format(L["Deploy_Saved"], form.Name.Trim());
+        _form = null;
+        await LoadAsync();
+        _selected = _apps?.FirstOrDefault(a => a.Spec.Name == form.Name.Trim());
+    });
+
+    private Task DeployAsync() => RunAsync(async () =>
+    {
+        var result = await Api.DeployAsync(_selected!.Spec.Name, _tag!.Trim());
+        _message = string.Format(L["Deploy_Done"], $"{result.Spec.Image}:{result.CurrentTag}");
+        _tag = null;
+    });
+
+    private Task RollbackAsync() => RunAsync(async () =>
+    {
+        var result = await Api.RollbackAsync(_selected!.Spec.Name);
+        _message = string.Format(L["Deploy_Done"], $"{result.Spec.Image}:{result.CurrentTag}");
+    });
+
+    private Task RemoveAsync(bool removeContainer) => RunAsync(async () =>
+    {
+        var name = _selected!.Spec.Name;
+        await Api.RemoveDeploymentAsync(name, removeContainer);
+        _selected = null;
+        _message = string.Format(L["Deploy_Removed"], name);
+    });
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        _busy = true;
+        _error = null;
+        _message = null;
+        try
+        {
+            await action();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+            var message = _message;
+            await LoadAsync();
+            _message ??= message;
+        }
+    }
+
+    private static string[] Lines(string text) =>
+        text.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+    private sealed class AppForm
+    {
+        public bool IsNew { get; init; }
+        public string Name { get; set; } = "";
+        public string Image { get; set; } = "";
+        public string Ports { get; set; } = "";
+        public string Environment { get; set; } = "";
+        public string Volumes { get; set; } = "";
+        public string Pod { get; set; } = "";
+        public string Restart { get; set; } = "always";
+        public PullPolicy Pull { get; set; } = PullPolicy.Missing;
+        public int HealthCheckSeconds { get; set; } = 10;
+    }
+}

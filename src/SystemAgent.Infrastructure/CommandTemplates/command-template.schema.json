@@ -56,7 +56,7 @@
             "type": "string"
           },
           "args": {
-            "description": "引数。{id} {image} {tail} {file} 等のプレースホルダは実行時に置換される。シェルは介さない。",
+            "description": "引数。{id} {image} {tail} {file} 等のプレースホルダは実行時に置換される。{*name} はリストで、その引数を値の数だけ繰り返す（0件なら省略）。シェルは介さない。",
             "type": "array",
             "items": { "type": "string" }
           },

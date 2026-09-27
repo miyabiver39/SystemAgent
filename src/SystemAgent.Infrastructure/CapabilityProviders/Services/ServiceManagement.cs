@@ -13,7 +13,7 @@ public sealed class ServiceManagement(CapabilityTemplateResolver resolver, IConf
 {
     public static readonly string[] DefaultManaged =
     [
-        "chronyd", "chrony", "systemd-timesyncd", "keepalived", "mariadb", "mysqld", "podman", "podman.socket", "docker",
+        "chronyd", "chrony", "systemd-timesyncd", "keepalived", "mariadb", "mysqld", "podman", "podman.socket", "podman-restart", "docker",
         "NetworkManager", "systemd-networkd", "nginx", "sshd", "ssh",
     ];
 

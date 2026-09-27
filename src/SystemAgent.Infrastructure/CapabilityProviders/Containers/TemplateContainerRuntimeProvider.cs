@@ -78,6 +78,49 @@ public sealed partial class TemplateContainerRuntimeProvider(TemplateCommandExec
         return executor.RunAsync("registryLogout", Values(("registry", RegistryName.Validate(registry))), cancellationToken);
     }
 
+    public async Task<bool> ImageExistsAsync(string image, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("imageExists");
+        try
+        {
+            await executor.RunAsync("imageExists", Values(("image", Reference(image))), cancellationToken);
+            return true;
+        }
+        catch (CommandFailedException)
+        {
+            return false;
+        }
+    }
+
+    public Task RenameContainerAsync(string id, string newName, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("renameContainer");
+        return executor.RunAsync("renameContainer", Values(("id", Reference(id)), ("name", Reference(newName))), cancellationToken);
+    }
+
+    public async Task<int?> GetRestartCountAsync(string id, CancellationToken cancellationToken = default)
+    {
+        if (!executor.Has("containerRestartCount")) return null;
+        var output = (await executor.RunAsync("containerRestartCount", Values(("id", Reference(id))), cancellationToken)).StandardOutput;
+        return int.TryParse(output.Trim(), out var count) ? count : null;
+    }
+
+    public Task RunContainerAsync(ContainerRunSpec spec, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("runContainer");
+        if (spec.Pod is not null && !executor.Template.Commands["runContainer"].Placeholders.Contains("*pod"))
+            throw new CapabilityUnavailableException($"{runtime.Name} はPodに対応していません。");
+        var lists = new Dictionary<string, IReadOnlyList<string>>
+        {
+            ["pod"] = spec.Pod is null ? [] : [Reference(spec.Pod)],
+            ["ports"] = spec.Ports,
+            ["env"] = spec.Environment,
+            ["volumes"] = spec.Volumes,
+        };
+        return executor.RunAsync("runContainer",
+            Values(("name", Reference(spec.Name)), ("image", Reference(spec.Image)), ("restart", spec.Restart)), lists, cancellationToken);
+    }
+
     private void RequireCommand(string command)
     {
         if (!executor.Has(command))

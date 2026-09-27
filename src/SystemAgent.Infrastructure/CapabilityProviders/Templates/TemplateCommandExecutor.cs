@@ -14,9 +14,14 @@ public sealed class TemplateCommandExecutor(CommandTemplate template, ICommandRu
     public bool Has(string command) => template.Commands.ContainsKey(command);
 
     public async Task<CommandResult> RunAsync(
-        string command, IReadOnlyDictionary<string, string>? values = null, CancellationToken cancellationToken = default)
+        string command, IReadOnlyDictionary<string, string>? values = null, CancellationToken cancellationToken = default) =>
+        await RunAsync(command, values, null, cancellationToken);
+
+    /// <param name="lists">リストのプレースホルダ（{*name}）の値。</param>
+    public async Task<CommandResult> RunAsync(string command, IReadOnlyDictionary<string, string>? values,
+        IReadOnlyDictionary<string, IReadOnlyList<string>>? lists, CancellationToken cancellationToken = default)
     {
-        var (executable, args, timeout) = Prepare(command, values);
+        var (executable, args, timeout) = Prepare(command, values, lists);
         return EnsureSuccess(executable, args, await runner.RunAsync(executable, args, timeout, cancellationToken));
     }
 
@@ -27,17 +32,18 @@ public sealed class TemplateCommandExecutor(CommandTemplate template, ICommandRu
     public async Task<CommandResult> RunWithInputAsync(
         string command, IReadOnlyDictionary<string, string>? values, string input, CancellationToken cancellationToken = default)
     {
-        var (executable, args, timeout) = Prepare(command, values);
+        var (executable, args, timeout) = Prepare(command, values, null);
         using var stdin = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(input));
         return EnsureSuccess(executable, args, await runner.RunStreamingAsync(executable, args, stdin, null, timeout, cancellationToken));
     }
 
-    private (string Executable, IReadOnlyList<string> Args, TimeSpan Timeout) Prepare(string command, IReadOnlyDictionary<string, string>? values)
+    private (string Executable, IReadOnlyList<string> Args, TimeSpan Timeout) Prepare(
+        string command, IReadOnlyDictionary<string, string>? values, IReadOnlyDictionary<string, IReadOnlyList<string>>? lists)
     {
         var definition = template.Commands[command];
         var merged = new Dictionary<string, string>(template.Settings);
         foreach (var (key, value) in values ?? new Dictionary<string, string>()) merged[key] = value;
-        return (definition.Executable ?? template.Executable, definition.Render(merged), TimeSpan.FromSeconds(definition.TimeoutSeconds));
+        return (definition.Executable ?? template.Executable, definition.Render(merged, lists), TimeSpan.FromSeconds(definition.TimeoutSeconds));
     }
 
     private static CommandResult EnsureSuccess(string executable, IReadOnlyList<string> args, CommandResult result) =>

@@ -11,6 +11,7 @@ using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Auditing;
 using SystemAgent.Infrastructure.Backup;
 using SystemAgent.Infrastructure.Cluster;
+using SystemAgent.Infrastructure.Deploy;
 using SystemAgent.Infrastructure.Ha;
 using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
@@ -68,7 +69,9 @@ public static class DependencyInjection
 
         services.AddSingleton<CapabilityTemplateResolver>();
         services.AddSingleton<ContainerRuntimeResolver>();
+        services.AddSingleton<IContainerRuntimeResolver>(sp => sp.GetRequiredService<ContainerRuntimeResolver>());
         services.AddSingleton<RegistryService>();
+        services.AddSingleton<DeploymentService>();
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();
         services.AddSingleton<ServiceManagement>();

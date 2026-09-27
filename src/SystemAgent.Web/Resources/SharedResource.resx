@@ -119,6 +119,47 @@
   <data name="Registries_Saved" xml:space="preserve"><value>{0} にログインしました。</value></data>
   <data name="Registries_Removed" xml:space="preserve"><value>{0} の認証情報を削除しました。</value></data>
   <data name="Registries_LoginFailed" xml:space="preserve"><value>ログインに失敗しました。</value></data>
+  <data name="Nav_Deploy" xml:space="preserve"><value>デプロイ</value></data>
+  <data name="Deploy_Title" xml:space="preserve"><value>アプリのデプロイ</value></data>
+  <data name="Deploy_Hint" xml:space="preserve"><value>自社アプリ（コンテナ）をこのノードに定義し、タグを指定してイメージを更新します。新しいコンテナが一定時間動作しなかった場合は、自動で元のコンテナに戻します。定義はノードごとに暗号化して保存します（中央DBが停止していてもデプロイ・ロールバックできます）。</value></data>
+  <data name="Deploy_Apps" xml:space="preserve"><value>アプリ</value></data>
+  <data name="Deploy_New" xml:space="preserve"><value>アプリを追加</value></data>
+  <data name="Deploy_Empty" xml:space="preserve"><value>アプリは定義されていません。</value></data>
+  <data name="Deploy_App" xml:space="preserve"><value>アプリ（コンテナ名）</value></data>
+  <data name="Deploy_Image" xml:space="preserve"><value>イメージ</value></data>
+  <data name="Deploy_ImageNoTag" xml:space="preserve"><value>イメージ（タグなし）</value></data>
+  <data name="Deploy_Current" xml:space="preserve"><value>現在のタグ</value></data>
+  <data name="Deploy_Previous" xml:space="preserve"><value>1つ前</value></data>
+  <data name="Deploy_LastDeployed" xml:space="preserve"><value>デプロイ日時</value></data>
+  <data name="Deploy_Deploying" xml:space="preserve"><value>デプロイ中…</value></data>
+  <data name="Deploy_NoContainer" xml:space="preserve"><value>コンテナなし</value></data>
+  <data name="Deploy_Open" xml:space="preserve"><value>開く</value></data>
+  <data name="Deploy_Tag" xml:space="preserve"><value>デプロイするタグ</value></data>
+  <data name="Deploy_Run" xml:space="preserve"><value>デプロイ</value></data>
+  <data name="Deploy_RunHint" xml:space="preserve"><value>イメージを先に取得してから切り替えます（停止時間は起動確認の間だけ）。</value></data>
+  <data name="Deploy_Rollback" xml:space="preserve"><value>{0} に戻す</value></data>
+  <data name="Deploy_ActionDeploy" xml:space="preserve"><value>デプロイ</value></data>
+  <data name="Deploy_ActionRollback" xml:space="preserve"><value>ロールバック</value></data>
+  <data name="Deploy_Success" xml:space="preserve"><value>成功</value></data>
+  <data name="Deploy_Failed" xml:space="preserve"><value>失敗（元に戻した）</value></data>
+  <data name="Deploy_RemoveDefinition" xml:space="preserve"><value>定義だけ削除</value></data>
+  <data name="Deploy_RemoveWithContainer" xml:space="preserve"><value>定義とコンテナを削除</value></data>
+  <data name="Deploy_EditTitle" xml:space="preserve"><value>{0} の定義を編集</value></data>
+  <data name="Deploy_Ports" xml:space="preserve"><value>ポート公開（1行に1つ。例: 8080:80）</value></data>
+  <data name="Deploy_Env" xml:space="preserve"><value>環境変数（1行に1つ。KEY=VALUE）</value></data>
+  <data name="Deploy_Volumes" xml:space="preserve"><value>ボリューム（1行に1つ。/ホスト:/コンテナ[:ro]）</value></data>
+  <data name="Deploy_Pod" xml:space="preserve"><value>Pod（Podmanのみ。空なら参加しない）</value></data>
+  <data name="Deploy_Restart" xml:space="preserve"><value>再起動ポリシー</value></data>
+  <data name="Deploy_Pull" xml:space="preserve"><value>イメージの取得</value></data>
+  <data name="Deploy_PullMissing" xml:space="preserve"><value>ローカルに無い時だけ（エアギャップ向け）</value></data>
+  <data name="Deploy_PullAlways" xml:space="preserve"><value>毎回取得する</value></data>
+  <data name="Deploy_Health" xml:space="preserve"><value>動作確認までの秒数</value></data>
+  <data name="Deploy_Seconds" xml:space="preserve"><value>秒</value></data>
+  <data name="Deploy_Save" xml:space="preserve"><value>定義を保存</value></data>
+  <data name="Deploy_SaveHint" xml:space="preserve"><value>保存だけではコンテナは変わりません。名前に PASS / SECRET / TOKEN / KEY を含む環境変数の値は伏せて表示し、******** のままなら保存済みの値を使います。</value></data>
+  <data name="Deploy_Saved" xml:space="preserve"><value>{0} の定義を保存しました。</value></data>
+  <data name="Deploy_Done" xml:space="preserve"><value>{0} をデプロイしました。</value></data>
+  <data name="Deploy_Removed" xml:space="preserve"><value>{0} を削除しました。</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

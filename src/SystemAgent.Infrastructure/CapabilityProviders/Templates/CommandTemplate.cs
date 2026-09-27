@@ -48,7 +48,10 @@ public sealed partial record CommandDefinition
     /// <summary>このコマンドだけ別の実行ファイルを使う場合に指定（例: systemctl）。省略時はテンプレートのexecutable。</summary>
     public string? Executable { get; init; }
 
-    /// <summary>引数。{name} はプレースホルダで、実行時に値へ置換される。</summary>
+    /// <summary>
+    /// 引数。{name} はプレースホルダで、実行時に値へ置換される。
+    /// {*name} はリストのプレースホルダで、その引数を値の数だけ繰り返す（0件なら引数ごと省略。例: "--publish={*ports}"）。
+    /// </summary>
     public required string[] Args { get; init; }
 
     /// <summary>出力を解析するパーサー名（一覧取得系コマンドのみ）。</summary>
@@ -56,13 +59,34 @@ public sealed partial record CommandDefinition
 
     public int TimeoutSeconds { get; init; } = 60;
 
-    public IReadOnlyList<string> Render(IReadOnlyDictionary<string, string> values) =>
-        Args.Select(arg => Placeholder().Replace(arg, m => values.TryGetValue(m.Groups[1].Value, out var value)
-            ? value
-            : throw new InvalidOperationException($"プレースホルダ {{{m.Groups[1].Value}}} の値がありません。"))).ToList();
+    public IReadOnlyList<string> Render(
+        IReadOnlyDictionary<string, string> values, IReadOnlyDictionary<string, IReadOnlyList<string>>? lists = null)
+    {
+        var result = new List<string>();
+        foreach (var arg in Args)
+        {
+            var scalar = Placeholder().Replace(arg, m => values.TryGetValue(m.Groups[1].Value, out var value)
+                ? value
+                : throw new InvalidOperationException($"プレースホルダ {{{m.Groups[1].Value}}} の値がありません。"));
+            if (ListPlaceholder().Match(scalar) is not { Success: true } list)
+            {
+                result.Add(scalar);
+                continue;
+            }
+            var name = list.Groups[1].Value;
+            var items = lists?.GetValueOrDefault(name) ?? throw new InvalidOperationException($"プレースホルダ {{*{name}}} の値がありません。");
+            result.AddRange(items.Select(item => scalar.Replace(list.Value, item)));
+        }
+        return result;
+    }
 
-    public IEnumerable<string> Placeholders => Args.SelectMany(a => Placeholder().Matches(a).Select(m => m.Groups[1].Value));
+    /// <summary>使っているプレースホルダ。リストは "*name"。</summary>
+    public IEnumerable<string> Placeholders => Args.SelectMany(a =>
+        Placeholder().Matches(a).Select(m => m.Groups[1].Value).Concat(ListPlaceholder().Matches(a).Select(m => "*" + m.Groups[1].Value)));
 
     [GeneratedRegex(@"\{(\w+)\}")]
     private static partial Regex Placeholder();
+
+    [GeneratedRegex(@"\{\*(\w+)\}")]
+    private static partial Regex ListPlaceholder();
 }

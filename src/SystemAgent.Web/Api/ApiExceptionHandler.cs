@@ -2,6 +2,7 @@ using System.Data.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.CapabilityProviders;
+using SystemAgent.Core.Deploy;
 using SystemAgent.Infrastructure.Cluster;
 
 namespace SystemAgent.Web.Api;
@@ -10,7 +11,8 @@ namespace SystemAgent.Web.Api;
 /// /api配下の未処理例外をProblemDetailsで返す。画面(Blazor)側の例外はfalseを返して既定のエラーページに任せる。
 /// <list type="bullet">
 /// <item>DB接続障害: 503（クライアントは緊急ログインへ誘導する）</item>
-/// <item>OSコマンドの失敗: 422（コマンドのエラー出力をそのまま返す）</item>
+/// <item>OSコマンドの失敗・デプロイの失敗: 422（コマンドのエラー出力をそのまま返す）</item>
+/// <item>対象がない: 404</item>
 /// <item>この環境で提供できない機能: 501</item>
 /// <item>引数の不正: 400 / コマンドのタイムアウト: 504</item>
 /// </list>
@@ -26,6 +28,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
         var (status, detail) = exception switch
         {
             DatabaseOperationException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
+            DeploymentFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
+            KeyNotFoundException => (StatusCodes.Status404NotFound, "対象が見つかりません（削除済みか、名前が違います）。"),
             _ when exception is DbException || exception.InnerException is DbException =>
                 (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),
             CommandFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),

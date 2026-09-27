@@ -3,8 +3,13 @@ using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Containers;
 
+public interface IContainerRuntimeResolver
+{
+    Task<IContainerRuntimeProvider> ResolveAsync(CancellationToken cancellationToken = default);
+}
+
 /// <summary>Container:Runtime = auto|podman|docker。autoはPodman優先（ADR-017）。</summary>
-public sealed class ContainerRuntimeResolver(CapabilityTemplateResolver resolver)
+public sealed class ContainerRuntimeResolver(CapabilityTemplateResolver resolver) : IContainerRuntimeResolver
 {
     public async Task<IContainerRuntimeProvider> ResolveAsync(CancellationToken cancellationToken = default)
     {

@@ -17,6 +17,14 @@
     "removeImage": { "args": ["rmi", "{id}"] },
     "loadImage": { "args": ["load", "-i", "{file}"], "timeoutSeconds": 1800 },
     "registryLogin": { "args": ["login", "--username", "{username}", "--password-stdin", "{registry}"], "timeoutSeconds": 60 },
-    "registryLogout": { "args": ["logout", "{registry}"] }
+    "registryLogout": { "args": ["logout", "{registry}"] },
+    "imageExists": { "args": ["image", "inspect", "--format", "{{.Id}}", "{image}"] },
+    "renameContainer": { "args": ["rename", "{id}", "{name}"] },
+    "containerRestartCount": { "args": ["inspect", "--format", "{{.RestartCount}}", "{id}"] },
+    "runContainer": {
+      "args": ["run", "-d", "--name", "{name}", "--label=io.systemagent.deployment={name}", "--restart={restart}",
+               "--publish={*ports}", "--env={*env}", "--volume={*volumes}", "{image}"],
+      "timeoutSeconds": 300
+    }
   }
 }

@@ -30,6 +30,7 @@
       "mysqld",
       "podman",
       "podman.socket",
+      "podman-restart",
       "docker",
       "NetworkManager",
       "systemd-networkd",

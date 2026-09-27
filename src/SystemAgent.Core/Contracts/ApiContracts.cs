@@ -29,6 +29,8 @@ public sealed record PullImageRequest([Required, MaxLength(512)] string Image);
 
 public sealed record ImportImageResponse(string Output);
 
+public sealed record DeployRequest([Required, MaxLength(128)] string Tag);
+
 /// <summary>登録済みのコンテナレジストリ（パスワードは返さない）。</summary>
 public sealed record RegistryView(string Registry, string Username, DateTimeOffset UpdatedAt);
 

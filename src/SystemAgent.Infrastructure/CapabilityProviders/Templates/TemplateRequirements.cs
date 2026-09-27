@@ -39,6 +39,10 @@ public static class TemplateRequirements
                     ["listPods"] = new(false, [], ContainerOutputParsers.Pods.Keys),
                     ["registryLogin"] = new(false, ["registry", "username"]),
                     ["registryLogout"] = new(false, ["registry"]),
+                    ["imageExists"] = new(false, ["image"]),
+                    ["renameContainer"] = new(false, ["id", "name"]),
+                    ["containerRestartCount"] = new(false, ["id"]),
+                    ["runContainer"] = new(false, ["name", "image", "restart", "*pod", "*ports", "*env", "*volumes"]),
                 },
                 Settings: new Dictionary<string, SettingRequirement>()),
 
