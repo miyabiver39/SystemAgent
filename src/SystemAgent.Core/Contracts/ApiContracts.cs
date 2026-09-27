@@ -49,13 +49,21 @@ public sealed record AuditLogFacets(IReadOnlyList<string> Actions, IReadOnlyList
 public sealed record DeployRequest([Required, MaxLength(128)] string Tag);
 
 /// <summary>登録済みのコンテナレジストリ（パスワードは返さない）。</summary>
-public sealed record RegistryView(string Registry, string Username, DateTimeOffset UpdatedAt);
+/// <param name="TlsVerify">false なら証明書を検証しない（自己署名証明書・HTTPのレジストリ）。</param>
+public sealed record RegistryView(string Registry, string Username, DateTimeOffset UpdatedAt, bool TlsVerify = true);
 
 /// <param name="Password">省略時は保存済みのパスワードでログインし直す。</param>
 public sealed record SaveRegistryRequest(
     [Required, MaxLength(253)] string Registry,
     [Required, MaxLength(256)] string Username,
-    [MaxLength(4096)] string? Password);
+    [MaxLength(4096)] string? Password,
+    bool TlsVerify = true);
+
+/// <param name="Image">送るローカルのイメージ（名前またはID）。</param>
+/// <param name="Target">送り先（レジストリ/リポジトリ:タグ。例: zot.example.com:5000/app/web:1.0）。レジストリは登録済みであること。</param>
+public sealed record PushImageRequest([Required, MaxLength(512)] string Image, [Required, MaxLength(512)] string Target);
+
+public sealed record RegistryTagsResponse(string Repository, IReadOnlyList<string> Tags);
 
 public sealed record NtpResponse(NtpImplementationInfo Implementation, NtpStatus Status);
 

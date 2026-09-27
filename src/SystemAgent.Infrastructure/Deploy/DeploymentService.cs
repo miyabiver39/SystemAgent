@@ -147,8 +147,8 @@ public sealed partial class DeploymentService(
         // 1. イメージ（切替前に取得しておき、停止時間を短くする）
         if (spec.Pull == PullPolicy.Always || !await runtime.ImageExistsAsync(image, cancellationToken))
         {
-            await registries.EnsureLoginAsync(runtime, image, cancellationToken);
-            await runtime.PullImageAsync(image, cancellationToken);
+            var tlsVerify = await registries.EnsureLoginAsync(runtime, image, cancellationToken);
+            await runtime.PullImageAsync(image, tlsVerify, cancellationToken);
         }
 
         // 2. 既存コンテナを退避（前回の退避が残っていれば削除）

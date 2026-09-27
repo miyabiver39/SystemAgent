@@ -37,9 +37,13 @@ public static partial class RegistryName
     private static partial Regex Pattern();
 }
 
+/// <summary>登録済みレジストリの認証情報（サーバー内でのみ使う。APIでは返さない）。</summary>
+/// <param name="TlsVerify">false なら証明書を検証しない（自己署名証明書・HTTPのレジストリ）。導入前の登録はtrue。</param>
+public sealed record RegistryCredential(string Registry, string Username, string Password, DateTimeOffset UpdatedAt, bool TlsVerify = true);
+
 /// <summary>
 /// コンテナレジストリの認証情報（ADR-023）。パスワードはローカルの暗号化シークレットに保存し、APIでは返さない。
-/// Podman の認証ファイルは /run 配下で再起動により消えるため、pullの直前に毎回ログインし直す。
+/// Podman の認証ファイルは /run 配下で再起動により消えるため、pull / push の直前に毎回ログインし直す。
 /// </summary>
 public sealed class RegistryService(ILocalSecretStore secrets, ILogger<RegistryService> logger)
 {
@@ -47,16 +51,21 @@ public sealed class RegistryService(ILocalSecretStore secrets, ILogger<RegistryS
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
     private readonly Lock _lock = new();
 
-    private sealed record Credential(string Registry, string Username, string Password, DateTimeOffset UpdatedAt);
-
     public IReadOnlyList<RegistryView> List() =>
-        Load().OrderBy(c => c.Registry).Select(c => new RegistryView(c.Registry, c.Username, c.UpdatedAt)).ToList();
+        Load().OrderBy(c => c.Registry).Select(c => new RegistryView(c.Registry, c.Username, c.UpdatedAt, c.TlsVerify)).ToList();
+
+    /// <summary>登録済みの認証情報。未登録ならnull。</summary>
+    public RegistryCredential? Find(string registry)
+    {
+        registry = RegistryName.Validate(registry);
+        return Load().FirstOrDefault(c => c.Registry == registry);
+    }
 
     /// <summary>
     /// ログインして成功したら保存する（誤った認証情報は保存しない）。パスワード省略時は保存済みの値を使う。
     /// </summary>
     public async Task<string> SaveAsync(IContainerRuntimeProvider runtime, string registry, string username, string? password,
-        CancellationToken cancellationToken = default)
+        bool tlsVerify = true, CancellationToken cancellationToken = default)
     {
         registry = RegistryName.Validate(registry);
         if (string.IsNullOrEmpty(password))
@@ -64,8 +73,8 @@ public sealed class RegistryService(ILocalSecretStore secrets, ILogger<RegistryS
             password = Load().FirstOrDefault(c => c.Registry == registry)?.Password
                 ?? throw new ArgumentException("パスワードを指定してください。");
         }
-        await runtime.LoginAsync(registry, username, password, cancellationToken);
-        Update(list => [.. list.Where(c => c.Registry != registry), new Credential(registry, username, password, DateTimeOffset.UtcNow)]);
+        await runtime.LoginAsync(registry, username, password, tlsVerify, cancellationToken);
+        Update(list => [.. list.Where(c => c.Registry != registry), new RegistryCredential(registry, username, password, DateTimeOffset.UtcNow, tlsVerify)]);
         return registry;
     }
 
@@ -87,18 +96,22 @@ public sealed class RegistryService(ILocalSecretStore secrets, ILogger<RegistryS
         return true;
     }
 
-    /// <summary>イメージのレジストリに認証情報が登録されていればログインする。登録がなければ何もしない（匿名でpull）。</summary>
-    public async Task EnsureLoginAsync(IContainerRuntimeProvider runtime, string image, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// イメージのレジストリに認証情報が登録されていればログインする。登録がなければ何もしない（匿名でpull）。
+    /// </summary>
+    /// <returns>そのレジストリの証明書を検証するか（未登録ならtrue）。pull / push に渡す。</returns>
+    public async Task<bool> EnsureLoginAsync(IContainerRuntimeProvider runtime, string image, CancellationToken cancellationToken = default)
     {
         var registry = RegistryName.FromImage(image);
-        if (Load().FirstOrDefault(c => c.Registry == registry) is { } credential)
-            await runtime.LoginAsync(credential.Registry, credential.Username, credential.Password, cancellationToken);
+        if (Load().FirstOrDefault(c => c.Registry == registry) is not { } credential) return true;
+        await runtime.LoginAsync(credential.Registry, credential.Username, credential.Password, credential.TlsVerify, cancellationToken);
+        return credential.TlsVerify;
     }
 
-    private List<Credential> Load() =>
-        secrets.GetSecret(SecretName) is { } json ? JsonSerializer.Deserialize<List<Credential>>(json, Json) ?? [] : [];
+    private List<RegistryCredential> Load() =>
+        secrets.GetSecret(SecretName) is { } json ? JsonSerializer.Deserialize<List<RegistryCredential>>(json, Json) ?? [] : [];
 
-    private void Update(Func<List<Credential>, List<Credential>> change)
+    private void Update(Func<List<RegistryCredential>, List<RegistryCredential>> change)
     {
         lock (_lock)
         {

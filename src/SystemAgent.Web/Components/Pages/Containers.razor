@@ -154,12 +154,58 @@
                             <td class="mono">@Formatting.ShortId(i.Id)</td>
                             <td>@Formatting.Bytes(i.SizeBytes)</td>
                             <td>@Formatting.DateTime(i.CreatedAt)</td>
-                            <td><ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => RemoveImageAsync(i)" /></td>
+                            <td>
+                                <button type="button" class="link" disabled="@_busy" @onclick="() => OpenPushAsync(i)">@L["Images_Push"]</button>
+                                <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => RemoveImageAsync(i)" />
+                            </td>
                         </tr>
                     }
                 </tbody>
             </table>
         }
+    }
+
+    @if (_push is not null)
+    {
+        <div class="card">
+            <div class="section-header">
+                <h2>@L["Images_PushTitle"]</h2>
+                <button type="button" class="link" @onclick="() => _push = null">@L["Common_Close"]</button>
+            </div>
+            @if (_registries is { Count: 0 })
+            {
+                <p class="notice warn">@L["Images_PushNoRegistry"] <a href="registries">@L["Nav_Registries"]</a></p>
+            }
+            else
+            {
+                <EditForm Model="_push" OnSubmit="PushAsync" FormName="image-push" class="grid-form">
+                    <label>
+                        @L["Images_PushSource"]
+                        <InputSelect @bind-Value="_push.Source">
+                            @foreach (var name in _push.Candidates)
+                            {
+                                <option value="@name">@name</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>
+                        @L["Images_PushRegistry"]
+                        <InputSelect @bind-Value="_push.Registry">
+                            @foreach (var r in _registries ?? [])
+                            {
+                                <option value="@r.Registry">@r.Registry</option>
+                            }
+                        </InputSelect>
+                    </label>
+                    <label>@L["Images_PushRepository"]<InputText @bind-Value="_push.Repository" placeholder="app/web" /></label>
+                    <label>@L["Images_PushTag"]<InputText @bind-Value="_push.Tag" placeholder="1.0.0" /></label>
+                    <div class="form-actions">
+                        <button type="submit" class="primary" disabled="@_busy">@(_busy ? L["Common_Processing"] : L["Images_Push"])</button>
+                        <span class="hint mono">@_push.Target</span>
+                    </div>
+                </EditForm>
+            }
+        </div>
     }
 
     <div class="card">
@@ -288,6 +334,60 @@
             _images = await Api.GetImagesAsync();
         });
         _busy = false;
+    }
+
+    private PushForm? _push;
+    private List<RegistryView>? _registries;
+
+    /// <summary>Push の入力欄を開く。送り先のリポジトリ・タグは元の名前から補う（例: docker.io/library/busybox:latest → library/busybox, latest）。</summary>
+    private async Task OpenPushAsync(ImageInfo image)
+    {
+        await RunAsync(async () => _registries = await Api.GetRegistriesAsync());
+        var source = image.Tags.FirstOrDefault() ?? Formatting.ShortId(image.Id);
+        var (repository, tag) = SplitName(source);
+        _push = new PushForm
+        {
+            Candidates = image.Tags.Count > 0 ? [.. image.Tags] : [Formatting.ShortId(image.Id)],
+            Source = source,
+            Registry = _registries?.FirstOrDefault()?.Registry ?? "",
+            Repository = repository,
+            Tag = tag,
+        };
+    }
+
+    private async Task PushAsync()
+    {
+        var push = _push!;
+        _busy = true;
+        await RunAsync(async () =>
+        {
+            await Api.PushImageAsync(push.Source, push.Target);
+            _message = string.Format(L["Images_Pushed"], push.Source, push.Target);
+            _push = null;
+            _images = await Api.GetImagesAsync();
+        });
+        _busy = false;
+    }
+
+    /// <summary>イメージ名からレジストリを除いたリポジトリとタグ。IDなら空。</summary>
+    private static (string Repository, string Tag) SplitName(string name)
+    {
+        if (!name.Contains('/') && !name.Contains(':')) return ("", "latest");
+        var slash = name.IndexOf('/');
+        if (slash > 0 && name[..slash] is var first && (first.Contains('.') || first.Contains(':') || first == "localhost"))
+            name = name[(slash + 1)..];
+        var colon = name.LastIndexOf(':');
+        return colon > 0 ? (name[..colon], name[(colon + 1)..]) : (name, "latest");
+    }
+
+    private sealed class PushForm
+    {
+        public List<string> Candidates { get; init; } = [];
+        public string Source { get; set; } = "";
+        public string Registry { get; set; } = "";
+        public string Repository { get; set; } = "";
+        public string Tag { get; set; } = "";
+        public string Target => $"{Registry}/{Repository.Trim().Trim('/')}:{Tag.Trim()}";
     }
 
     private async Task ReloadImagesAsync()

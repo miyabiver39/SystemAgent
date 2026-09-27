@@ -26,7 +26,14 @@ public interface IContainerRuntimeProvider
 
     Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken cancellationToken = default);
 
-    Task PullImageAsync(string image, CancellationToken cancellationToken = default);
+    /// <param name="tlsVerify">false ならレジストリの証明書を検証しない（自己署名・HTTPのレジストリ。Podmanのみ有効）。</param>
+    Task PullImageAsync(string image, bool tlsVerify = true, CancellationToken cancellationToken = default);
+
+    /// <summary>ローカルのイメージに別名（レジストリ/リポジトリ:タグ）を付ける。</summary>
+    Task TagImageAsync(string image, string target, CancellationToken cancellationToken = default);
+
+    /// <summary>イメージをレジストリへ送る。image はレジストリを含む名前。</summary>
+    Task PushImageAsync(string image, bool tlsVerify = true, CancellationToken cancellationToken = default);
 
     Task RemoveImageAsync(string id, CancellationToken cancellationToken = default);
 
@@ -36,7 +43,7 @@ public interface IContainerRuntimeProvider
     Task<IReadOnlyList<PodInfo>> ListPodsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>レジストリにログインする。パスワードは標準入力で渡す（プロセス一覧に出さない）。</summary>
-    Task LoginAsync(string registry, string username, string password, CancellationToken cancellationToken = default);
+    Task LoginAsync(string registry, string username, string password, bool tlsVerify = true, CancellationToken cancellationToken = default);
 
     Task LogoutAsync(string registry, CancellationToken cancellationToken = default);
 

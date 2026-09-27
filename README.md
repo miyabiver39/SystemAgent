@@ -137,7 +137,11 @@ dotnet publish src/SystemAgent.Cli -c Release -r linux-x64 --self-contained -p:P
 
 ## コンテナレジストリ
 
-[ADR-023](docs/adr/0023-container-registry-credentials.md)。非公開レジストリは WebUI の「レジストリ」画面または`systemagent registry login <レジストリ> -u <ユーザー>`で登録する（ログインに成功した場合だけ暗号化して保存）。以降の`image pull`では自動でログインする。
+[ADR-023](docs/adr/0023-container-registry-credentials.md)、[ADR-026](docs/adr/0026-image-push-and-registry-browser.md)。非公開レジストリ（ZOT等）は WebUI の「レジストリ」画面または`systemagent registry login <レジストリ> -u <ユーザー>`で登録する（ログインに成功した場合だけ暗号化して保存。自己署名証明書・HTTPなら`--no-tls-verify`）。以降の pull / push では自動でログインする。
+
+- イメージの取り込み: コンテナ画面にtarファイルをドラッグ＆ドロップ（選択中のノードに読み込む）、または`systemagent image import <ファイル>`
+- Push: コンテナ画面のイメージの「Push」、または`systemagent image push <イメージ> <レジストリ>/<リポジトリ>:<タグ>`
+- レジストリ内のイメージ: レジストリ画面の「イメージ」、または`systemagent registry repos|tags|delete-tag`
 
 ## デプロイ
 

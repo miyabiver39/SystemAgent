@@ -28,7 +28,7 @@ else
 {
     <table>
         <thead>
-            <tr><th>@L["Registries_Registry"]</th><th>@L["Registries_Username"]</th><th>@L["Registries_UpdatedAt"]</th><th></th></tr>
+            <tr><th>@L["Registries_Registry"]</th><th>@L["Registries_Username"]</th><th>@L["Registries_TlsVerify"]</th><th>@L["Registries_UpdatedAt"]</th><th></th></tr>
         </thead>
         <tbody>
             @foreach (var r in _registries)
@@ -36,6 +36,7 @@ else
                 <tr @key="r.Registry">
                     <td>@r.Registry</td>
                     <td>@r.Username</td>
+                    <td>@(r.TlsVerify ? L["Registries_TlsOn"] : L["Registries_TlsOff"])</td>
                     <td>@Formatting.DateTime(r.UpdatedAt)</td>
                     <td>
                         @if (_busy == r.Registry)
@@ -44,6 +45,7 @@ else
                         }
                         else
                         {
+                            <button type="button" class="link" @onclick="() => BrowseAsync(r.Registry)">@L["Registries_Browse"]</button>
                             <button type="button" class="link" @onclick="() => RetestAsync(r)">@L["Registries_Retest"]</button>
                             <button type="button" class="link" @onclick="() => Edit(r)">@L["Registries_Edit"]</button>
                             <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => RemoveAsync(r.Registry)" />
@@ -55,12 +57,70 @@ else
     </table>
 }
 
+@if (_browse is { } browse)
+{
+    <section class="card">
+        <div class="section-header">
+            <h2>@string.Format(L["Registries_BrowseTitle"], browse.Registry)</h2>
+            <button type="button" class="link" @onclick="() => BrowseAsync(browse.Registry)">@L["Common_Reload"]</button>
+            <button type="button" class="link" @onclick="() => _browse = null">@L["Common_Close"]</button>
+        </div>
+        @if (browse.Repositories is null)
+        {
+            <p class="muted">@L["Common_Loading"]</p>
+        }
+        else if (browse.Repositories.Count == 0)
+        {
+            <p class="muted">@L["Registries_NoRepositories"]</p>
+        }
+        else
+        {
+            <table>
+                <thead><tr><th>@L["Registries_Repository"]</th><th>@L["Registries_Tags"]</th></tr></thead>
+                <tbody>
+                    @foreach (var repository in browse.Repositories)
+                    {
+                        <tr @key="repository">
+                            <td class="mono">
+                                <button type="button" class="link" @onclick="() => LoadTagsAsync(browse, repository)">@repository</button>
+                            </td>
+                            <td>
+                                @if (browse.Tags.TryGetValue(repository, out var tags))
+                                {
+                                    @if (tags.Count == 0)
+                                    {
+                                        <span class="muted">@L["Registries_NoTags"]</span>
+                                    }
+                                    @foreach (var tag in tags)
+                                    {
+                                        <div class="mono" @key="tag">
+                                            @tag
+                                            <span class="hint">@browse.Registry/@repository:@tag</span>
+                                            <ConfirmButton Label="@L["Common_Delete"]" OnConfirmed="() => DeleteTagAsync(browse, repository, tag)" />
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <button type="button" class="link" @onclick="() => LoadTagsAsync(browse, repository)">@L["Registries_ShowTags"]</button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <p class="hint">@L["Registries_DeleteHint"]</p>
+        }
+    </section>
+}
+
 <section class="card">
     <h2>@L["Registries_Add"]</h2>
     <EditForm Model="_form" OnSubmit="SaveAsync" FormName="registry" class="grid-form">
         <label>@L["Registries_Registry"]<InputText @bind-Value="_form.Registry" placeholder="registry.example.com:5000" /></label>
         <label>@L["Registries_Username"]<InputText @bind-Value="_form.Username" autocomplete="off" /></label>
         <label>@L["Registries_Password"]<InputText type="password" @bind-Value="_form.Password" autocomplete="new-password" /></label>
+        <label class="checkbox"><InputCheckbox @bind-Value="_form.SkipTlsVerify" /> @L["Registries_SkipTlsVerify"]</label>
         <div class="form-actions">
             <button type="submit" class="primary" disabled="@(_busy is not null)">@L["Registries_Login"]</button>
             <span class="hint">@L["Registries_LoginHint"]</span>
@@ -89,19 +149,20 @@ else
         }
     }
 
-    private void Edit(RegistryView registry) => _form = new RegistryForm { Registry = registry.Registry, Username = registry.Username };
+    private void Edit(RegistryView registry) =>
+        _form = new RegistryForm { Registry = registry.Registry, Username = registry.Username, SkipTlsVerify = !registry.TlsVerify };
 
     private Task SaveAsync() => RunAsync(_form.Registry, async () =>
     {
         await Api.SaveRegistryAsync(new SaveRegistryRequest(_form.Registry.Trim(), _form.Username.Trim(),
-            string.IsNullOrEmpty(_form.Password) ? null : _form.Password));
+            string.IsNullOrEmpty(_form.Password) ? null : _form.Password, !_form.SkipTlsVerify));
         _message = string.Format(L["Registries_Saved"], _form.Registry.Trim());
         _form = new RegistryForm();
     });
 
     private Task RetestAsync(RegistryView registry) => RunAsync(registry.Registry, async () =>
     {
-        await Api.SaveRegistryAsync(new SaveRegistryRequest(registry.Registry, registry.Username, null));
+        await Api.SaveRegistryAsync(new SaveRegistryRequest(registry.Registry, registry.Username, null, registry.TlsVerify));
         _message = string.Format(L["Registries_Saved"], registry.Registry);
     });
 
@@ -138,5 +199,59 @@ else
         public string Registry { get; set; } = "";
         public string Username { get; set; } = "";
         public string Password { get; set; } = "";
+        public bool SkipTlsVerify { get; set; }
+    }
+
+    private BrowseState? _browse;
+
+    private sealed class BrowseState(string registry)
+    {
+        public string Registry { get; } = registry;
+        public List<string>? Repositories { get; set; }
+        public Dictionary<string, IReadOnlyList<string>> Tags { get; } = [];
+    }
+
+    private async Task BrowseAsync(string registry)
+    {
+        _error = null;
+        _browse = new BrowseState(registry);
+        try
+        {
+            _browse.Repositories = await Api.GetRegistryRepositoriesAsync(registry);
+        }
+        catch (ApiException ex)
+        {
+            _browse = null;
+            _error = ex.Message;
+        }
+    }
+
+    private async Task LoadTagsAsync(BrowseState browse, string repository)
+    {
+        _error = null;
+        try
+        {
+            browse.Tags[repository] = (await Api.GetRegistryTagsAsync(browse.Registry, repository)).Tags;
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+
+    private async Task DeleteTagAsync(BrowseState browse, string repository, string tag)
+    {
+        _error = null;
+        _message = null;
+        try
+        {
+            await Api.DeleteRegistryTagAsync(browse.Registry, repository, tag);
+            _message = string.Format(L["Registries_TagDeleted"], $"{browse.Registry}/{repository}:{tag}");
+            await LoadTagsAsync(browse, repository);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
     }
 }

@@ -236,7 +236,10 @@ public sealed class DeployTests : IDisposable
 
         public Task<IReadOnlyList<ImageInfo>> ListImagesAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
 
-        public Task PullImageAsync(string image, CancellationToken cancellationToken = default)
+        public Task TagImageAsync(string image, string target, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task PushImageAsync(string image, bool tlsVerify = true, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task PullImageAsync(string image, bool tlsVerify = true, CancellationToken cancellationToken = default)
         {
             if (MissingTags.Contains(image.Split(':')[^1])) throw new CommandFailedException("pull", 125, "manifest unknown");
             Pulled.Add(image);
@@ -247,7 +250,7 @@ public sealed class DeployTests : IDisposable
         public Task RemoveImageAsync(string id, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<string> LoadImageAsync(string archivePath, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IReadOnlyList<PodInfo>> ListPodsAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<PodInfo>>([]);
-        public Task LoginAsync(string registry, string username, string password, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task LoginAsync(string registry, string username, string password, bool tlsVerify = true, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task LogoutAsync(string registry, CancellationToken cancellationToken = default) => Task.CompletedTask;
 
         /// <summary>再起動を繰り返す（確認時点では動作中に見える）タグ。</summary>

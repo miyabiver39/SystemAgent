@@ -189,6 +189,27 @@
   <data name="Images_UploadLoading" xml:space="preserve"><value>読み込み中…</value></data>
   <data name="Images_UploadDone" xml:space="preserve"><value>取り込み完了</value></data>
   <data name="Images_UploadFailed" xml:space="preserve"><value>失敗</value></data>
+  <data name="Registries_TlsVerify" xml:space="preserve"><value>証明書の検証</value></data>
+  <data name="Registries_TlsOn" xml:space="preserve"><value>する</value></data>
+  <data name="Registries_TlsOff" xml:space="preserve"><value>しない</value></data>
+  <data name="Registries_SkipTlsVerify" xml:space="preserve"><value>証明書を検証しない（自己署名証明書・HTTPのレジストリ。Dockerの場合は daemon.json の insecure-registries も必要）</value></data>
+  <data name="Registries_Browse" xml:space="preserve"><value>イメージ</value></data>
+  <data name="Registries_BrowseTitle" xml:space="preserve"><value>{0} のイメージ</value></data>
+  <data name="Registries_NoRepositories" xml:space="preserve"><value>リポジトリはありません。</value></data>
+  <data name="Registries_Repository" xml:space="preserve"><value>リポジトリ</value></data>
+  <data name="Registries_Tags" xml:space="preserve"><value>タグ</value></data>
+  <data name="Registries_ShowTags" xml:space="preserve"><value>タグを表示</value></data>
+  <data name="Registries_NoTags" xml:space="preserve"><value>タグはありません。</value></data>
+  <data name="Registries_DeleteHint" xml:space="preserve"><value>削除するのはタグだけです（同じ内容を指す他のタグは残ります）。容量はレジストリのガベージコレクションで解放されます。</value></data>
+  <data name="Registries_TagDeleted" xml:space="preserve"><value>{0} を削除しました。</value></data>
+  <data name="Images_Push" xml:space="preserve"><value>Push</value></data>
+  <data name="Images_PushTitle" xml:space="preserve"><value>レジストリへ送る（Push）</value></data>
+  <data name="Images_PushNoRegistry" xml:space="preserve"><value>送り先のレジストリが登録されていません。先にレジストリを登録してください:</value></data>
+  <data name="Images_PushSource" xml:space="preserve"><value>送るイメージ</value></data>
+  <data name="Images_PushRegistry" xml:space="preserve"><value>送り先レジストリ</value></data>
+  <data name="Images_PushRepository" xml:space="preserve"><value>リポジトリ</value></data>
+  <data name="Images_PushTag" xml:space="preserve"><value>タグ</value></data>
+  <data name="Images_Pushed" xml:space="preserve"><value>{0} を {1} へ送りました。</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

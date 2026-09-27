@@ -48,15 +48,15 @@ public sealed class RegistryTests : IDisposable
         Assert.Throws<ArgumentException>(() => RegistryName.Validate(registry));
 
     [Theory]
-    [InlineData("podman")]
-    [InlineData("docker")]
-    public async Task Login_PassesPasswordViaStdinNotArguments(string templateId)
+    [InlineData("podman", "podman login --tls-verify=true --username deploy --password-stdin registry.example.com")]
+    [InlineData("docker", "docker login --username deploy --password-stdin registry.example.com")]
+    public async Task Login_PassesPasswordViaStdinNotArguments(string templateId, string expected)
     {
         var runner = new FakeRunner();
         await Runtime(runner, templateId).LoginAsync("registry.example.com", "deploy", "s3cr3t-token");
 
         var call = Assert.Single(runner.Calls);
-        Assert.Equal($"{templateId} login --username deploy --password-stdin registry.example.com", call);
+        Assert.Equal(expected, call);
         Assert.DoesNotContain("s3cr3t-token", call);
         Assert.Equal("s3cr3t-token", Encoding.UTF8.GetString(runner.ReceivedInput));
     }
@@ -102,8 +102,36 @@ public sealed class RegistryTests : IDisposable
         await service.EnsureLoginAsync(Runtime(runner), "docker.io/library/nginx:latest");
         Assert.Empty(runner.Calls);
 
-        await service.EnsureLoginAsync(Runtime(runner), "registry.example.com/app/web:1.0");
-        Assert.Equal("podman login --username deploy --password-stdin registry.example.com", Assert.Single(runner.Calls));
+        Assert.True(await service.EnsureLoginAsync(Runtime(runner), "registry.example.com/app/web:1.0"));
+        Assert.Equal("podman login --tls-verify=true --username deploy --password-stdin registry.example.com", Assert.Single(runner.Calls));
+    }
+
+    [Fact]
+    public async Task TlsVerifyDisabled_IsStoredAndPassedToPodman()
+    {
+        var service = Service();
+        var runner = new FakeRunner();
+        await service.SaveAsync(Runtime(runner), "zot.local:5000", "deploy", "pass", tlsVerify: false);
+        Assert.Equal("podman login --tls-verify=false --username deploy --password-stdin zot.local:5000", Assert.Single(runner.Calls));
+        Assert.False(Assert.Single(service.List()).TlsVerify);
+
+        var pull = new FakeRunner();
+        var provider = Runtime(pull);
+        var tlsVerify = await service.EnsureLoginAsync(provider, "zot.local:5000/app/web:1.0");
+        await provider.PullImageAsync("zot.local:5000/app/web:1.0", tlsVerify);
+        Assert.Equal("podman pull --tls-verify=false zot.local:5000/app/web:1.0", pull.Calls[^1]);
+    }
+
+    [Theory]
+    [InlineData("podman", "podman tag localhost/web:1 zot.local:5000/app/web:1.0", "podman push --tls-verify=false zot.local:5000/app/web:1.0")]
+    [InlineData("docker", "docker tag localhost/web:1 zot.local:5000/app/web:1.0", "docker push zot.local:5000/app/web:1.0")]
+    public async Task TagAndPush_RenderTemplateCommands(string templateId, string tag, string push)
+    {
+        var runner = new FakeRunner();
+        var provider = Runtime(runner, templateId);
+        await provider.TagImageAsync("localhost/web:1", "zot.local:5000/app/web:1.0");
+        await provider.PushImageAsync("zot.local:5000/app/web:1.0", tlsVerify: false);
+        Assert.Equal([tag, push], runner.Calls);
     }
 
     [Fact]

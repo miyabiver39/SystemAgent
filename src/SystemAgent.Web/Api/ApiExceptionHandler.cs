@@ -29,6 +29,9 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
         {
             DatabaseOperationException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
             DeploymentFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
+            RegistryRequestException { Unreachable: true } ex => (StatusCodes.Status502BadGateway, ex.Message),
+            RegistryRequestException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
+            KeyNotFoundException ex when ex.Message.EndsWith('。') => (StatusCodes.Status404NotFound, ex.Message),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "対象が見つかりません（削除済みか、名前が違います）。"),
             _ when exception is DbException || exception.InnerException is DbException =>
                 (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),

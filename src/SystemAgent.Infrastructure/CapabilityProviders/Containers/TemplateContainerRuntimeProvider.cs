@@ -43,8 +43,22 @@ public sealed partial class TemplateContainerRuntimeProvider(TemplateCommandExec
         ContainerOutputParsers.Images[executor.Parser("listImages")!](
             (await executor.RunAsync("listImages", null, cancellationToken)).StandardOutput);
 
-    public Task PullImageAsync(string image, CancellationToken cancellationToken = default) =>
-        executor.RunAsync("pullImage", Values(("image", Reference(image))), cancellationToken);
+    public Task PullImageAsync(string image, bool tlsVerify = true, CancellationToken cancellationToken = default) =>
+        executor.RunAsync("pullImage", Values(("image", Reference(image)), ("tlsVerify", TlsVerify(tlsVerify))), cancellationToken);
+
+    public Task TagImageAsync(string image, string target, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("tagImage");
+        return executor.RunAsync("tagImage", Values(("image", Reference(image)), ("target", Reference(target))), cancellationToken);
+    }
+
+    public Task PushImageAsync(string image, bool tlsVerify = true, CancellationToken cancellationToken = default)
+    {
+        RequireCommand("pushImage");
+        return executor.RunAsync("pushImage", Values(("image", Reference(image)), ("tlsVerify", TlsVerify(tlsVerify))), cancellationToken);
+    }
+
+    private static string TlsVerify(bool value) => value ? "true" : "false";
 
     public Task RemoveImageAsync(string id, CancellationToken cancellationToken = default) =>
         executor.RunAsync("removeImage", Values(("id", Reference(id))), cancellationToken);
@@ -63,13 +77,13 @@ public sealed partial class TemplateContainerRuntimeProvider(TemplateCommandExec
             (await executor.RunAsync("listPods", null, cancellationToken)).StandardOutput);
     }
 
-    public Task LoginAsync(string registry, string username, string password, CancellationToken cancellationToken = default)
+    public Task LoginAsync(string registry, string username, string password, bool tlsVerify = true, CancellationToken cancellationToken = default)
     {
         RequireCommand("registryLogin");
         if (username.Length is 0 or > 256 || username.StartsWith('-') || username.Any(char.IsControl))
             throw new ArgumentException("ユーザー名が不正です。");
         return executor.RunWithInputAsync("registryLogin",
-            Values(("registry", RegistryName.Validate(registry)), ("username", username)), password, cancellationToken);
+            Values(("registry", RegistryName.Validate(registry)), ("username", username), ("tlsVerify", TlsVerify(tlsVerify))), password, cancellationToken);
     }
 
     public Task LogoutAsync(string registry, CancellationToken cancellationToken = default)

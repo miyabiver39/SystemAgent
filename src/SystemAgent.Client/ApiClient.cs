@@ -222,6 +222,21 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task RemoveRegistryAsync(string registry, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/registries/{Uri.EscapeDataString(registry)}", null, authorize: true, cancellationToken);
 
+    public Task PushImageAsync(string image, string target, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Post, "api/images/push", new PushImageRequest(image, target), authorize: true, cancellationToken);
+
+    public Task<List<string>> GetRegistryRepositoriesAsync(string registry, CancellationToken cancellationToken = default) =>
+        SendAsync<List<string>>(HttpMethod.Get, $"api/registries/{Uri.EscapeDataString(registry)}/repositories", null, authorize: true, cancellationToken);
+
+    public Task<RegistryTagsResponse> GetRegistryTagsAsync(string registry, string repository, CancellationToken cancellationToken = default) =>
+        SendAsync<RegistryTagsResponse>(HttpMethod.Get,
+            $"api/registries/{Uri.EscapeDataString(registry)}/tags?repository={Uri.EscapeDataString(repository)}", null, authorize: true, cancellationToken);
+
+    public Task DeleteRegistryTagAsync(string registry, string repository, string tag, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Delete,
+            $"api/registries/{Uri.EscapeDataString(registry)}/tags?repository={Uri.EscapeDataString(repository)}&tag={Uri.EscapeDataString(tag)}",
+            null, authorize: true, cancellationToken);
+
     public Task RemoveImageAsync(string id, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/images/{Uri.EscapeDataString(id)}", null, authorize: true, cancellationToken);
 
