@@ -16,7 +16,7 @@ namespace SystemAgent.Infrastructure.Deploy;
 /// 失敗したら新しいコンテナを削除し、元のコンテナを戻して起動する。</para>
 /// </summary>
 public sealed class DeploymentService(
-    ILocalSecretStore secrets, IContainerRuntimeResolver resolver, RegistryService registries, ILogger<DeploymentService> logger)
+    ILocalSecretStore secrets, IContainerRuntimeResolver resolver, ImageTransferService transfer, ILogger<DeploymentService> logger)
 {
     private const string PreviousSuffix = DeploymentSpecs.PreviousSuffix;
     private const int MaxHistory = 30;
@@ -135,8 +135,7 @@ public sealed class DeploymentService(
         // 1. イメージ（切替前に取得しておき、停止時間を短くする）
         if (spec.Pull == PullPolicy.Always || !await runtime.ImageExistsAsync(image, cancellationToken))
         {
-            var tlsVerify = await registries.EnsureLoginAsync(runtime, image, cancellationToken);
-            await runtime.PullImageAsync(image, tlsVerify, cancellationToken);
+            await transfer.PullAsync(runtime, image, cancellationToken);
         }
 
         // 2. 既存コンテナを退避（前回の退避が残っていれば削除）

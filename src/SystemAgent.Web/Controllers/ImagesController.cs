@@ -16,7 +16,7 @@ namespace SystemAgent.Web.Controllers;
 [Authorize]
 [Route("api/images")]
 public class ImagesController(
-    ContainerRuntimeResolver resolver, RegistryService registries, ImageImporter importer, IAuditLogger audit) : ControllerBase
+    ContainerRuntimeResolver resolver, ImageTransferService transfer, ImageImporter importer, IAuditLogger audit) : ControllerBase
 {
     [HttpGet]
     public async Task<IReadOnlyList<ImageInfo>> List(CancellationToken cancellationToken) =>
@@ -26,46 +26,18 @@ public class ImagesController(
     public async Task<IActionResult> Pull(PullImageRequest request, CancellationToken cancellationToken)
     {
         var runtime = await resolver.ResolveAsync(cancellationToken);
-        var tlsVerify = await registries.EnsureLoginAsync(runtime, request.Image, cancellationToken);
-        await runtime.PullImageAsync(request.Image, tlsVerify, cancellationToken);
+        await transfer.PullAsync(runtime, request.Image, cancellationToken);
         await audit.LogAsync(User.ActorName(), "image.pull", $"{runtime.Runtime.Name}: {request.Image}", cancellationToken);
         return NoContent();
     }
 
-    /// <summary>
-    /// ローカルのイメージをレジストリへ送る（ADR-026）。送り先の名前を一時的に付けて push し、元から無かった名前なら外す。
-    /// 送り先のレジストリは登録済みであること（登録済みの認証情報でログインしてから送る）。
-    /// </summary>
+    /// <summary>ローカルのイメージを登録済みのレジストリへ送る（ADR-026）。</summary>
     [HttpPost("push")]
     public async Task<IActionResult> Push(PushImageRequest request, CancellationToken cancellationToken)
     {
-        var image = request.Image.Trim();
-        var target = request.Target.Trim();
-        var registry = RegistryName.FromImage(target);
-        if (registry == RegistryName.DockerHub && !target.StartsWith("docker.io/", StringComparison.Ordinal))
-            return Problem(statusCode: StatusCodes.Status400BadRequest,
-                detail: "送り先はレジストリを含めて指定してください（例: zot.example.com:5000/app/web:1.0）。");
-        if (registries.Find(registry) is null)
-            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: $"レジストリ {registry} は登録されていません。先に「レジストリ」で登録してください。");
-
         var runtime = await resolver.ResolveAsync(cancellationToken);
-        var tlsVerify = await registries.EnsureLoginAsync(runtime, target, cancellationToken);
-        // 名前の無いイメージ（IDで指定）に付けた名前を外すとイメージ自体が消えるため、その場合は付けた名前を残す
-        var source = (await runtime.ListImagesAsync(cancellationToken)).FirstOrDefault(i =>
-            i.Tags.Contains(image) || i.Id.StartsWith(image.Replace("sha256:", ""), StringComparison.Ordinal)
-            || i.Id.Replace("sha256:", "").StartsWith(image.Replace("sha256:", ""), StringComparison.Ordinal));
-        var tagged = image != target && source is not { Tags.Count: 0 } && !await runtime.ImageExistsAsync(target, cancellationToken);
-        if (image != target) await runtime.TagImageAsync(image, target, cancellationToken);
-        try
-        {
-            await runtime.PushImageAsync(target, tlsVerify, cancellationToken);
-        }
-        finally
-        {
-            // 送るためだけに付けた名前は外す（イメージ本体は元の名前で残る）
-            if (tagged) await runtime.RemoveImageAsync(target, CancellationToken.None);
-        }
-        await audit.LogAsync(User.ActorName(), "image.push", $"{runtime.Runtime.Name}: {image} → {target}", cancellationToken);
+        await transfer.PushAsync(runtime, request.Image, request.Target, cancellationToken);
+        await audit.LogAsync(User.ActorName(), "image.push", $"{runtime.Runtime.Name}: {request.Image.Trim()} → {request.Target.Trim()}", cancellationToken);
         return NoContent();
     }
 

@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddSingleton<IContainerRuntimeResolver>(sp => sp.GetRequiredService<ContainerRuntimeResolver>());
         services.AddSingleton<RegistryService>();
         services.AddSingleton<RegistryBrowser>();
+        services.AddSingleton<ImageTransferService>();
         services.AddSingleton<DeploymentService>();
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();

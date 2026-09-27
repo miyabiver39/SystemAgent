@@ -24,7 +24,7 @@ public sealed class DeployTests : IDisposable
     private DeploymentService Service()
     {
         var secrets = new LocalSecretStore(Path.Combine(_dir, "secrets"), NullLogger<LocalSecretStore>.Instance);
-        return new DeploymentService(secrets, _runtime, new RegistryService(secrets, NullLogger<RegistryService>.Instance),
+        return new DeploymentService(secrets, _runtime, new ImageTransferService(new RegistryService(secrets, NullLogger<RegistryService>.Instance)),
             NullLogger<DeploymentService>.Instance);
     }
 
