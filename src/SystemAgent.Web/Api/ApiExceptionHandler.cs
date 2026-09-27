@@ -2,6 +2,7 @@ using System.Data.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Errors;
+using SystemAgent.Infrastructure.Persistence;
 
 namespace SystemAgent.Web.Api;
 
@@ -24,6 +25,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
         var (status, detail) = exception switch
         {
             SystemAgentException ex => (StatusFor(ex.Kind), ex.Message),
+            _ when exception is DatabaseNotConfiguredException || exception.InnerException is DatabaseNotConfiguredException =>
+                (StatusCodes.Status503ServiceUnavailable, (exception as DatabaseNotConfiguredException ?? exception.InnerException)!.Message),
             _ when exception is DbException || exception.InnerException is DbException =>
                 (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),
             KeyNotFoundException => (StatusCodes.Status404NotFound, "対象が見つかりません（削除済みか、名前が違います）。"),
