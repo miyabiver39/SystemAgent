@@ -10,7 +10,9 @@ CLUSTER_PORT=$3
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
 
 cd "$REPO/artifacts/linux/web"
+# SYSTEMAGENT_WAIT_FOR_DEBUGGER=1 を付けて起動すると、デバッガがアタッチされるまで待つ（VS Code用）
 exec env \
+  SYSTEMAGENT_WAIT_FOR_DEBUGGER="${SYSTEMAGENT_WAIT_FOR_DEBUGGER:-0}" \
   Urls="http://0.0.0.0:$PORT" \
   Cluster__NodeName="$NAME" \
   Cluster__Port="$CLUSTER_PORT" \

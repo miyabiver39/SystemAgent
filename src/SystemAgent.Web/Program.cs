@@ -13,6 +13,13 @@ using SystemAgent.Web.Auth;
 using SystemAgent.Web.Client;
 using SystemAgent.Web.Components;
 
+// 開発用: 起動処理からデバッグできるよう、デバッガがアタッチされるまで待つ（VS Code の「WSL: node-a をデバッガ待ちで起動」）
+if (Environment.GetEnvironmentVariable("SYSTEMAGENT_WAIT_FOR_DEBUGGER") == "1")
+{
+    Console.WriteLine($"デバッガのアタッチを待っています（PID {Environment.ProcessId}）...");
+    while (!System.Diagnostics.Debugger.IsAttached) Thread.Sleep(200);
+}
+
 // パッケージ導入時（/usr/lib/systemagent）は起動時のカレントディレクトリが任意のため、配置先をコンテンツルートにする。
 // 開発時（dotnet run）はプロジェクトディレクトリに appsettings.json があるのでそのまま
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions

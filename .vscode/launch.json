@@ -1,0 +1,82 @@
+{
+  // README「VS Codeでのビルド・デバッグ」参照。C# 拡張機能（ms-dotnettools.csharp / C# Dev Kit）が必要
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Web（Windows・画面/DB確認用）",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/SystemAgent.Web/bin/Debug/net10.0/SystemAgent.Web.dll",
+      "cwd": "${workspaceFolder}/src/SystemAgent.Web",
+      "env": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ASPNETCORE_URLS": "http://localhost:5246"
+      },
+      "serverReadyAction": { "action": "openExternally", "pattern": "Now listening on:\\s+(https?://\\S+)" },
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "WSL: 実行中の node-a にアタッチ（sa-alma9）",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickRemoteProcess}",
+      "pipeTransport": {
+        "pipeProgram": "wsl",
+        "pipeArgs": ["-d", "sa-alma9", "-u", "root", "--"],
+        "debuggerPath": "/root/vsdbg/vsdbg",
+        "pipeCwd": "${workspaceFolder}",
+        "quoteArgs": false
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "WSL: node-a を起動からデバッグ（sa-alma9）",
+      "type": "coreclr",
+      "request": "attach",
+      "preLaunchTask": "WSL: node-a をデバッガ待ちで起動",
+      "processId": "${command:pickRemoteProcess}",
+      "pipeTransport": {
+        "pipeProgram": "wsl",
+        "pipeArgs": ["-d", "sa-alma9", "-u", "root", "--"],
+        "debuggerPath": "/root/vsdbg/vsdbg",
+        "pipeCwd": "${workspaceFolder}",
+        "quoteArgs": false
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "WSL: 実行中の node-b にアタッチ（sa-ubuntu2404）",
+      "type": "coreclr",
+      "request": "attach",
+      "processId": "${command:pickRemoteProcess}",
+      "pipeTransport": {
+        "pipeProgram": "wsl",
+        "pipeArgs": ["-d", "sa-ubuntu2404", "-u", "root", "--"],
+        "debuggerPath": "/root/vsdbg/vsdbg",
+        "pipeCwd": "${workspaceFolder}",
+        "quoteArgs": false
+      },
+      "justMyCode": true
+    },
+    {
+      "name": "CLI（Windows・引数を入力）",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/SystemAgent.Cli/bin/Debug/net10.0/systemagent.dll",
+      "args": "${input:cliArgs}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cliArgs",
+      "type": "promptString",
+      "description": "systemagent に渡す引数（例: --url http://localhost:5000 status）",
+      "default": "--url http://localhost:5000 status"
+    }
+  ]
+}

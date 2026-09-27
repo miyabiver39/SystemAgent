@@ -1,0 +1,71 @@
+{
+  // SystemAgent のビルド・テスト・WSL検証ノードの操作。README「VS Codeでのビルド・デバッグ」参照
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "detail": "ソリューション全体をビルド（Debug）",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["build", "${workspaceFolder}/SystemAgent.slnx", "/property:GenerateFullPaths=true", "/consoleloggerparameters:NoSummary"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "test",
+      "detail": "単体テストを実行",
+      "type": "process",
+      "command": "dotnet",
+      "args": ["test", "${workspaceFolder}/SystemAgent.slnx"],
+      "problemMatcher": "$msCompile",
+      "group": { "kind": "test", "isDefault": true }
+    },
+    {
+      "label": "WSL: ノードを停止",
+      "detail": "sa-alma9 / sa-ubuntu2404 / sa-debian の検証用ノードを停止",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/dev/stop-nodes.ps1"],
+      "problemMatcher": []
+    },
+    {
+      "label": "WSL: Linux版を発行（Debug）",
+      "detail": "artifacts/linux に Debug 構成で発行し、CLI を各ディストリビューションに入れる",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/dev/publish-linux.ps1", "-Configuration", "Debug"],
+      "dependsOn": "WSL: ノードを停止",
+      "problemMatcher": []
+    },
+    {
+      "label": "WSL: 3ノードを起動（Debugビルド）",
+      "detail": "停止 → Debug発行 → node-a(:5000) / node-b(:5001) / node-c(:5002) を起動",
+      "type": "process",
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "${workspaceFolder}/scripts/dev/start-nodes.ps1"],
+      "dependsOn": "WSL: Linux版を発行（Debug）",
+      "problemMatcher": []
+    },
+    {
+      "label": "WSL: node-a をデバッガ待ちで起動",
+      "detail": "node-a だけを止め、デバッガのアタッチを待つ状態で起動する（起動処理からデバッグする場合）",
+      "type": "shell",
+      "command": "wsl -d sa-alma9 -u root --exec pkill -x SystemAgent.Web; wsl -d sa-alma9 -u root --cd '${workspaceFolder}' --exec env SYSTEMAGENT_WAIT_FOR_DEBUGGER=1 sh scripts/dev/run-node.sh node-a 5000 5443",
+      "options": { "shell": { "executable": "pwsh", "args": ["-NoProfile", "-Command"] } },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "systemagent",
+        "pattern": { "regexp": "^__never_matches__$" },
+        "background": { "activesBegin": true, "beginsPattern": ".", "endsPattern": "デバッガのアタッチを待っています" }
+      }
+    },
+    {
+      "label": "WSL: vsdbg をインストール",
+      "detail": "WSL上のノードにアタッチするためのデバッガを sa-alma9 と sa-ubuntu2404 に入れる（初回のみ）",
+      "type": "shell",
+      "command": "wsl -d sa-alma9 -u root --cd '${workspaceFolder}' --exec sh scripts/dev/install-vsdbg.sh; wsl -d sa-ubuntu2404 -u root --cd '${workspaceFolder}' --exec sh scripts/dev/install-vsdbg.sh",
+      "options": { "shell": { "executable": "pwsh", "args": ["-NoProfile", "-Command"] } },
+      "problemMatcher": []
+    }
+  ]
+}
