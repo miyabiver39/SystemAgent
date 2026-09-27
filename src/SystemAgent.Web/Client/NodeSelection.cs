@@ -17,7 +17,9 @@ public sealed class NodeSelection
         if (NodeId == nodeId) return;
         NodeId = nodeId;
         NodeName = nodeName;
-        if (Changed is { } changed) await changed.Invoke();
+        // Func<Task> を複数登録したイベントを Invoke すると最後のハンドラの Task しか返らないため、全員分を待つ
+        if (Changed is { } changed)
+            await Task.WhenAll(changed.GetInvocationList().Cast<Func<Task>>().Select(handler => handler()));
     }
 }
 
