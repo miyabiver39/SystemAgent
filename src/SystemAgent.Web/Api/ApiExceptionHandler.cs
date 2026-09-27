@@ -33,6 +33,14 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             _ => (StatusCodes.Status500InternalServerError, "サーバー内部でエラーが発生しました。"),
         };
 
+        // CSV出力・バックアップのダウンロード等で本文を送り始めた後は、ステータスコードもヘッダも変えられない。
+        // 書き換えようとすると別の例外で本来の原因が隠れるため、記録だけして上位（接続の中断）に任せる
+        if (context.Response.HasStarted)
+        {
+            logger.LogError(exception, "API応答の送信中に例外が発生したため、応答を中断します: {Path}", originalPath);
+            return false;
+        }
+
         if (status == StatusCodes.Status500InternalServerError)
             logger.LogError(exception, "API処理中に未処理の例外が発生しました: {Path}", originalPath);
         else
