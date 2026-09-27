@@ -24,9 +24,11 @@ public class NodeProxyController(NodeForwarder forwarder, ClusterEndpointSetting
     [DisableFormValueModelBinding]
     public async Task<IActionResult> Proxy(Guid nodeId, string path, CancellationToken cancellationToken)
     {
-        // 転送先で再度転送させない（ループ防止）。操作対象はAPIのみ
-        if (!path.StartsWith("api/", StringComparison.Ordinal) || path.StartsWith("api/nodes/", StringComparison.Ordinal))
+        if (!IsForwardablePath(path))
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "転送できないパスです。");
+        // 他ノードから転送されてきた要求は、さらに別のノードへは転送しない（パスの判定をすり抜けても多段転送・ループにならない）
+        if (User.FindFirst(AuthConstants.AuthSourceClaim)?.Value == "node")
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "他ノードから転送された要求は、さらに転送できません。");
 
         HttpContent? content = null;
         if (Request.ContentLength > 0 || Request.Headers.TransferEncoding.Count > 0)
@@ -49,10 +51,20 @@ public class NodeProxyController(NodeForwarder forwarder, ClusterEndpointSetting
         return new EmptyResult();
     }
 
-    /// <summary>転送先の監査ログに残す操作者。すでに他ノード経由の操作者名ならそのまま。</summary>
-    private string Actor()
+    /// <summary>
+    /// 転送してよいパスか。操作対象はAPIのみで、転送先で再度転送させない（ループ防止）。
+    /// ルーティングは大文字小文字を区別しないため比較も区別せず、. / .. のセグメント（エンコードしたものを含む）は
+    /// 転送先でURLが正規化されて api/nodes/... に化けるため拒否する。
+    /// </summary>
+    public static bool IsForwardablePath(string path)
     {
-        var name = User.ActorName();
-        return User.FindFirst(AuthConstants.AuthSourceClaim)?.Value == "node" ? name : $"{name}@{endpoint.NodeName}";
+        // %2F 等でエンコードされた区切りも、転送先の解釈に合わせて戻してから判断する
+        var decoded = Uri.UnescapeDataString(path).Replace('\\', '/');
+        if (decoded.Split('/').Any(s => s is "." or "..")) return false;
+        return decoded.StartsWith("api/", StringComparison.OrdinalIgnoreCase)
+            && !decoded.StartsWith("api/nodes/", StringComparison.OrdinalIgnoreCase);
     }
+
+    /// <summary>転送先の監査ログに残す操作者（ユーザー名@転送元ノード）。</summary>
+    private string Actor() => $"{User.ActorName()}@{endpoint.NodeName}";
 }
