@@ -53,6 +53,7 @@ public sealed class ClusterIdentity(ILocalSecretStore secrets)
     public void Save(string clusterName, Guid nodeId, string nodeCertificatePem, string nodePrivateKeyPem,
         string caCertificatePem, string? caPrivateKeyPem)
     {
+        Snapshot? previous;
         lock (_lock)
         {
             secrets.SetSecret(ClusterNameKey, clusterName);
@@ -62,8 +63,12 @@ public sealed class ClusterIdentity(ILocalSecretStore secrets)
             secrets.SetSecret(NodePrivateKeyKey, nodePrivateKeyPem);
             // ノードIDは最後に書く（Currentはこれの有無で参加済みか判断する）
             secrets.SetSecret(NodeIdKey, nodeId.ToString());
+            previous = _snapshot;
             _snapshot = null;
         }
+        // 古い証明書を使うクライアント（ClusterHttpClientFactory）を先に作り直させてから、古い証明書を破棄する
         Changed?.Invoke();
+        previous?.NodeCertificate.Dispose();
+        previous?.CaCertificate.Dispose();
     }
 }
