@@ -9,6 +9,7 @@ using SystemAgent.Core.Nodes;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Cluster;
 using SystemAgent.Infrastructure.Persistence;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.Ha;
 

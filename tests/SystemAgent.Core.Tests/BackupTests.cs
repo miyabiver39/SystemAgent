@@ -10,6 +10,7 @@ using SystemAgent.Infrastructure.Commands;
 using SystemAgent.Infrastructure.Persistence;
 using SystemAgent.Infrastructure.Security;
 using FakeRunner = SystemAgent.Core.Tests.CommandTemplateTests.FakeRunner;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Core.Tests;
 

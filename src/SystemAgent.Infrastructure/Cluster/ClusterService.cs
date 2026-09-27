@@ -10,6 +10,7 @@ using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Nodes;
 using SystemAgent.Infrastructure.Persistence;
 using SystemAgent.Infrastructure.Persistence.Entities;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.Cluster;
 
@@ -239,6 +240,3 @@ public sealed class ClusterService(
 
     private static string FormatHost(string address) => address.Contains(':') ? $"[{address}]" : address;
 }
-
-/// <summary>クラスタの状態上、要求された操作ができない（既に参加済み等）。APIでは409。</summary>
-public sealed class ClusterStateException(string message) : Exception(message);

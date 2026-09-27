@@ -1,20 +1,16 @@
 using System.Data.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using SystemAgent.Core.CapabilityProviders;
-using SystemAgent.Core.Deploy;
-using SystemAgent.Infrastructure.Cluster;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Web.Api;
 
 /// <summary>
 /// /api配下の未処理例外をProblemDetailsで返す。画面(Blazor)側の例外はfalseを返して既定のエラーページに任せる。
 /// <list type="bullet">
+/// <item>業務上の失敗（SystemAgentException）: 種類（ErrorKind）で決める。400 / 404 / 409 / 422 / 501 / 502</item>
 /// <item>DB接続障害: 503（クライアントは緊急ログインへ誘導する）</item>
-/// <item>OSコマンドの失敗・デプロイの失敗: 422（コマンドのエラー出力をそのまま返す）</item>
-/// <item>対象がない: 404</item>
-/// <item>この環境で提供できない機能: 501</item>
-/// <item>引数の不正: 400 / コマンドのタイムアウト: 504</item>
+/// <item>引数の不正: 400 / 権限なし: 403 / コマンドのタイムアウト: 504 / それ以外: 500（詳細はログのみ）</item>
 /// </list>
 /// </summary>
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, ILogger<ApiExceptionHandler> logger) : IExceptionHandler
@@ -27,17 +23,10 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
 
         var (status, detail) = exception switch
         {
-            DatabaseOperationException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
-            DeploymentFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
-            RegistryRequestException { Unreachable: true } ex => (StatusCodes.Status502BadGateway, ex.Message),
-            RegistryRequestException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
-            KeyNotFoundException ex when ex.Message.EndsWith('。') => (StatusCodes.Status404NotFound, ex.Message),
-            KeyNotFoundException => (StatusCodes.Status404NotFound, "対象が見つかりません（削除済みか、名前が違います）。"),
+            SystemAgentException ex => (StatusFor(ex.Kind), ex.Message),
             _ when exception is DbException || exception.InnerException is DbException =>
                 (StatusCodes.Status503ServiceUnavailable, "データベースに接続できません。DB復旧までは緊急ログインで操作してください。"),
-            CommandFailedException ex => (StatusCodes.Status422UnprocessableEntity, ex.Message),
-            CapabilityUnavailableException ex => (StatusCodes.Status501NotImplemented, ex.Message),
-            ClusterStateException ex => (StatusCodes.Status409Conflict, ex.Message),
+            KeyNotFoundException => (StatusCodes.Status404NotFound, "対象が見つかりません（削除済みか、名前が違います）。"),
             UnauthorizedAccessException ex => (StatusCodes.Status403Forbidden, ex.Message),
             ArgumentException ex => (StatusCodes.Status400BadRequest, ex.Message),
             TimeoutException ex => (StatusCodes.Status504GatewayTimeout, ex.Message),
@@ -57,4 +46,15 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
             ProblemDetails = new ProblemDetails { Status = status, Detail = detail },
         });
     }
+
+    private static int StatusFor(ErrorKind kind) => kind switch
+    {
+        ErrorKind.InvalidInput => StatusCodes.Status400BadRequest,
+        ErrorKind.NotFound => StatusCodes.Status404NotFound,
+        ErrorKind.Conflict => StatusCodes.Status409Conflict,
+        ErrorKind.OperationFailed => StatusCodes.Status422UnprocessableEntity,
+        ErrorKind.NotSupported => StatusCodes.Status501NotImplemented,
+        ErrorKind.Unreachable => StatusCodes.Status502BadGateway,
+        _ => StatusCodes.Status500InternalServerError,
+    };
 }

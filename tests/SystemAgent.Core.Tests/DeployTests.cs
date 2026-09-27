@@ -7,6 +7,7 @@ using SystemAgent.Infrastructure.Cluster;
 using SystemAgent.Infrastructure.Deploy;
 using SystemAgent.Infrastructure.Security;
 using FakeRunner = SystemAgent.Core.Tests.CommandTemplateTests.FakeRunner;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Core.Tests;
 
@@ -124,7 +125,7 @@ public sealed class DeployTests : IDisposable
     {
         var service = Service();
         service.Save(Spec());
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.RollbackAsync("nothing", "admin"));
+        await Assert.ThrowsAsync<NotFoundException>(() => service.RollbackAsync("nothing", "admin"));
         await service.DeployAsync("web", "1.0", "admin");
         await Assert.ThrowsAsync<ClusterStateException>(() => service.RollbackAsync("web", "admin"));
         await service.DeployAsync("web", "1.1", "admin");

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Security;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Containers;
 

@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Containers;
 

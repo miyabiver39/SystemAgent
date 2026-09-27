@@ -4,6 +4,7 @@ using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Deploy;
 using SystemAgent.Infrastructure.Deploy;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -55,7 +56,7 @@ public class DeploymentsController(DeploymentService deployments, IAuditLogger a
             await audit.LogAsync(User.Identity!.Name!, action, $"{target} → 成功", cancellationToken);
             return view;
         }
-        catch (Exception ex) when (ex is DeploymentFailedException or SystemAgent.Core.CapabilityProviders.CommandFailedException)
+        catch (Exception ex) when (ex is DeploymentFailedException or CommandFailedException)
         {
             await audit.LogAsync(User.Identity!.Name!, action, $"{target} → 失敗（元に戻しました）", CancellationToken.None);
             throw;

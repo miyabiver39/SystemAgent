@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.Commands;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Templates;
 

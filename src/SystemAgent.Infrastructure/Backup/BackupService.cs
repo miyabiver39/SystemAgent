@@ -10,6 +10,7 @@ using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;
 using SystemAgent.Infrastructure.Persistence;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.Backup;
 

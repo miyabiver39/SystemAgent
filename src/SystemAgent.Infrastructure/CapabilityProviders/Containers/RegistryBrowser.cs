@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using SystemAgent.Core.CapabilityProviders;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Containers;
 
@@ -55,7 +56,7 @@ public sealed partial class RegistryBrowser
         if (response.IsSuccessStatusCode) return;
         throw response.StatusCode switch
         {
-            HttpStatusCode.NotFound => new KeyNotFoundException($"{repository}:{tag} はレジストリにありません。"),
+            HttpStatusCode.NotFound => new NotFoundException($"{repository}:{tag} はレジストリにありません。"),
             HttpStatusCode.MethodNotAllowed or HttpStatusCode.BadRequest => new RegistryRequestException(
                 $"このレジストリはタグ指定の削除に対応していないか、削除が無効になっています（HTTP {(int)response.StatusCode}）。"),
             _ => await ErrorAsync(response, cancellationToken),
@@ -63,16 +64,17 @@ public sealed partial class RegistryBrowser
     }
 
     private RegistryCredential Credential(string registry) =>
-        _registries.Find(registry) ?? throw new KeyNotFoundException($"レジストリ {registry} は登録されていません。");
+        _registries.Find(registry) ?? throw new NotFoundException($"レジストリ {registry} は登録されていません。");
 
     /// <summary>Link ヘッダ（rel="next"）をたどって全ページを返す。</summary>
-    private async IAsyncEnumerable<T> PagesAsync<T>(RegistryCredential credential, string path,
+    private async IAsyncEnumerable<T> PagesAsync<T>(RegistryCredential credential, string firstPage,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        string? path = firstPage;
         for (var page = 0; page < MaxPages && path is not null; page++)
         {
             using var response = await SendAsync(credential, HttpMethod.Get, path, cancellationToken);
-            if (response.StatusCode == HttpStatusCode.NotFound) throw new KeyNotFoundException("レジストリに該当するリポジトリがありません。");
+            if (response.StatusCode == HttpStatusCode.NotFound) throw new NotFoundException("レジストリに該当するリポジトリがありません。");
             if (!response.IsSuccessStatusCode) throw await ErrorAsync(response, cancellationToken);
             yield return (await response.Content.ReadFromJsonAsync<T>(cancellationToken))!;
             path = NextPage(response);

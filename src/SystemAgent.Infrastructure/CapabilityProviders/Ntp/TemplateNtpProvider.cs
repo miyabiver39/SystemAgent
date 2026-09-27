@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Ntp;
 

@@ -4,6 +4,7 @@ using SystemAgent.Infrastructure.CapabilityProviders.Ntp;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;
 using FakeRunner = SystemAgent.Core.Tests.CommandTemplateTests.FakeRunner;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Core.Tests;
 

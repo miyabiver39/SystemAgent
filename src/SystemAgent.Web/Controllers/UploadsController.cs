@@ -31,16 +31,7 @@ public class UploadsController(UploadTickets tickets, ImageImporter importer, No
         if (Request.ContentLength is { } length) content.Headers.ContentLength = length;
         content.Headers.TryAddWithoutValidation(ImagesController.FileNameHeader, fileName);
 
-        HttpResponseMessage response;
-        try
-        {
-            response = await forwarder.SendAsync(nodeId, HttpMethod.Post, "api/images/import", content, "application/json", entry.Actor, cancellationToken);
-        }
-        catch (NodeForwarder.ForwardException ex)
-        {
-            return Problem(statusCode: ex.StatusCode, detail: ex.Message);
-        }
-        using (response)
+        using (var response = await forwarder.SendAsync(nodeId, HttpMethod.Post, "api/images/import", content, "application/json", entry.Actor, cancellationToken))
         {
             Response.StatusCode = (int)response.StatusCode;
             Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "application/json";

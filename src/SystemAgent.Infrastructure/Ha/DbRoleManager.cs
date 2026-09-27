@@ -1,6 +1,7 @@
 using MySqlConnector;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Ha;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.Ha;
 

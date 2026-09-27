@@ -8,6 +8,7 @@ using SystemAgent.Core.Deploy;
 using SystemAgent.Core.Security;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.Cluster;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.Deploy;
 
@@ -100,14 +101,14 @@ public sealed partial class DeploymentService(
     /// <summary>直前にデプロイしていたタグに戻す。</summary>
     public async Task<DeploymentView> RollbackAsync(string name, string user, CancellationToken cancellationToken = default)
     {
-        var record = Find(name) ?? throw new KeyNotFoundException(name);
+        var record = Find(name) ?? throw NotDefined(name);
         var previous = record.PreviousTag ?? throw new ClusterStateException("戻せるバージョンがありません（デプロイ履歴が1件以下です）。");
         return await RunAsync(name, previous, user, "rollback", cancellationToken);
     }
 
     private async Task<DeploymentView> RunAsync(string name, string tag, string user, string action, CancellationToken cancellationToken)
     {
-        var record = Find(name) ?? throw new KeyNotFoundException(name);
+        var record = Find(name) ?? throw NotDefined(name);
         using var _ = await AcquireAsync(name);
         var spec = record.Spec;
         var image = $"{spec.Image}:{tag}";
@@ -302,6 +303,8 @@ public sealed partial class DeploymentService(
         return cleaned;
     }
 
+    private static NotFoundException NotDefined(string name) => new($"アプリ {name} は定義されていません。");
+
     private Record? Find(string name) => Load().FirstOrDefault(r => r.Spec.Name == name);
 
     private Record Update(string name, Func<Record, Record> change)
@@ -310,7 +313,7 @@ public sealed partial class DeploymentService(
         {
             var records = Load();
             var index = records.FindIndex(r => r.Spec.Name == name);
-            if (index < 0) throw new KeyNotFoundException(name);
+            if (index < 0) throw NotDefined(name);
             var updated = change(records[index]);
             records[index] = updated with { History = [.. updated.History.Take(MaxHistory)] };
             Store(records);

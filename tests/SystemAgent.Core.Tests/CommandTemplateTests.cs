@@ -4,6 +4,7 @@ using SystemAgent.Infrastructure.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.CapabilityProviders.Templates;
 using SystemAgent.Infrastructure.Commands;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Core.Tests;
 

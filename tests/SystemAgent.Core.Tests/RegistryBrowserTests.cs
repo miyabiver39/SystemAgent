@@ -5,6 +5,7 @@ using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Infrastructure.Security;
 using FakeRunner = SystemAgent.Core.Tests.CommandTemplateTests.FakeRunner;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Core.Tests;
 
@@ -88,7 +89,7 @@ public sealed class RegistryBrowserTests : IDisposable
         Assert.Contains("認証に失敗", auth.Message);
 
         _respond = _ => new HttpResponseMessage(HttpStatusCode.NotFound);
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => browser.DeleteTagAsync("zot.local:5000", "app/web", "1.0"));
+        await Assert.ThrowsAsync<NotFoundException>(() => browser.DeleteTagAsync("zot.local:5000", "app/web", "1.0"));
     }
 
     [Theory]
@@ -128,7 +129,7 @@ public sealed class RegistryBrowserTests : IDisposable
     public async Task UnregisteredRegistry_IsNotFound()
     {
         var browser = await BrowserAsync();
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => browser.ListRepositoriesAsync("other.local:5000"));
+        await Assert.ThrowsAsync<NotFoundException>(() => browser.ListRepositoriesAsync("other.local:5000"));
     }
 
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler

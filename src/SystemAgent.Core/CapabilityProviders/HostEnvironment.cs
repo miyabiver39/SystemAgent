@@ -23,24 +23,3 @@ public interface IEnvironmentDetector
 {
     Task<HostEnvironment> DetectAsync(bool refresh = false, CancellationToken cancellationToken = default);
 }
-
-/// <summary>この環境では該当機能を提供できない（ツール未導入・対応テンプレートなし等）。</summary>
-public sealed class CapabilityUnavailableException(string message) : Exception(message);
-
-/// <summary>OSコマンドが失敗した。StandardErrorはランタイムのエラーメッセージ。</summary>
-public sealed class CommandFailedException(string command, int exitCode, string standardError)
-    : Exception($"コマンドが失敗しました（終了コード {exitCode}）: {standardError.Trim()}")
-{
-    public string Command { get; } = command;
-    public int ExitCode { get; } = exitCode;
-    public string StandardError { get; } = standardError;
-}
-
-/// <summary>このノードのDB（HAの昇格・降格用の接続）に対する操作が失敗した。中央DBの停止（503）とは区別する。</summary>
-public sealed class DatabaseOperationException(string message, Exception? inner = null) : Exception(message, inner);
-
-/// <summary>コンテナレジストリへの要求が失敗した。Unreachable は接続できなかった場合（502）、それ以外はレジストリのエラー（422）。</summary>
-public sealed class RegistryRequestException(string message, bool unreachable = false) : Exception(message)
-{
-    public bool Unreachable { get; } = unreachable;
-}

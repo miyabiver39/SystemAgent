@@ -36,18 +36,8 @@ public class NodeProxyController(NodeForwarder forwarder, ClusterEndpointSetting
             if (Request.ContentLength is { } length) content.Headers.ContentLength = length;
         }
 
-        HttpResponseMessage response;
-        try
-        {
-            response = await forwarder.SendAsync(nodeId, new HttpMethod(Request.Method), $"{path}{Request.QueryString}", content,
-                Request.Headers.Accept.ToString(), Actor(), cancellationToken);
-        }
-        catch (NodeForwarder.ForwardException ex)
-        {
-            return Problem(statusCode: ex.StatusCode, detail: ex.Message);
-        }
-
-        using (response)
+        using (var response = await forwarder.SendAsync(nodeId, new HttpMethod(Request.Method), $"{path}{Request.QueryString}", content,
+                   Request.Headers.Accept.ToString(), Actor(), cancellationToken))
         {
             Response.StatusCode = (int)response.StatusCode;
             foreach (var header in response.Content.Headers.Concat(response.Headers).Where(h => ForwardedResponseHeaders.Contains(h.Key)))

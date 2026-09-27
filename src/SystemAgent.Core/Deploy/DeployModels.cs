@@ -40,6 +40,3 @@ public sealed record DeploymentView(
     string? RunningImage,
     bool Deploying,
     IReadOnlyList<DeploymentEvent> History);
-
-/// <summary>デプロイに失敗した（元のコンテナに戻した）。</summary>
-public sealed class DeploymentFailedException(string message) : Exception(message);

@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Security.Authentication;
+using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.Cluster;
 
