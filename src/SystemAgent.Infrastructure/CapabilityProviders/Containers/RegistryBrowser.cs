@@ -11,12 +11,17 @@ namespace SystemAgent.Infrastructure.CapabilityProviders.Containers;
 /// 登録済みレジストリの中のイメージ（リポジトリ・タグ）を OCI Distribution API で参照・削除する（ADR-026。ZOTを想定）。
 /// 認証は登録済みの認証情報で、サーバーの要求に応じて Basic / Digest を使い分ける（htpasswd）。
 /// TLS検証を無効にしたレジストリは、HTTPSで接続できなければHTTPで接続する。
+/// HttpClient はレジストリ（認証情報）ごとに作って使い回す（要求のたびに作るとページ送りのたびに接続を張り直し、
+/// TIME_WAIT のソケットが溜まる）。認証情報が変わったら作り直す。
 /// </summary>
-public sealed partial class RegistryBrowser
+public sealed partial class RegistryBrowser : IDisposable
 {
     private const int MaxPages = 50;
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(30);
     private readonly RegistryService _registries;
     private readonly Func<RegistryCredential, HttpMessageHandler> _handlerFactory;
+    private readonly Lock _clientsLock = new();
+    private readonly Dictionary<string, (RegistryCredential Credential, HttpClient Client)> _clients = new(StringComparer.OrdinalIgnoreCase);
 
     public RegistryBrowser(RegistryService registries) : this(registries, CreateHandler) { }
 
@@ -77,20 +82,76 @@ public sealed partial class RegistryBrowser
             if (response.StatusCode == HttpStatusCode.NotFound) throw new NotFoundException("レジストリに該当するリポジトリがありません。");
             if (!response.IsSuccessStatusCode) throw await ErrorAsync(response, cancellationToken);
             yield return (await response.Content.ReadFromJsonAsync<T>(cancellationToken))!;
-            path = NextPage(response);
+            path = NextPage(response, credential.Registry);
         }
     }
 
-    private static string? NextPage(HttpResponseMessage response)
+    /// <summary>
+    /// 次のページ（Link ヘッダの rel="next"）のパス。レジストリが返す値は信用せず、同じレジストリの /v2/ 配下のパスに限る。
+    /// 別ホスト（http://169.254.169.254/ 等）・プロトコル相対（//host/）・.. を含むパスは、認証情報を付けて
+    /// 別の宛先へ要求を送らされる（SSRF）おそれがあるため拒否する。
+    /// </summary>
+    public static string? NextPage(HttpResponseMessage response, string registry)
     {
         if (!response.Headers.TryGetValues("Link", out var links)) return null;
         var match = LinkNextPattern().Match(string.Join(',', links));
-        return match.Success ? match.Groups[1].Value.TrimStart('/') : null;
+        if (!match.Success) return null;
+
+        var link = match.Groups[1].Value.Trim();
+        string pathAndQuery;
+        if (link.StartsWith("//", StringComparison.Ordinal) || link.Contains('\\') || link.Any(char.IsControl))
+            throw InvalidLink(link);
+        if (Uri.TryCreate(link, UriKind.Absolute, out var absolute) && link.Contains("://", StringComparison.Ordinal))
+        {
+            if (absolute.Scheme is not ("https" or "http") || !string.Equals(absolute.Authority, registry, StringComparison.OrdinalIgnoreCase)
+                || absolute.UserInfo.Length > 0)
+                throw InvalidLink(link);
+            pathAndQuery = absolute.PathAndQuery;
+        }
+        else
+        {
+            pathAndQuery = link;
+        }
+
+        var path = pathAndQuery.TrimStart('/');
+        var pathOnly = path.Split('?', 2)[0];
+        if (!path.StartsWith("v2/", StringComparison.Ordinal)
+            || Uri.UnescapeDataString(pathOnly).Split('/').Any(segment => segment is "." or ".."))
+            throw InvalidLink(link);
+        return path;
+    }
+
+    private static RegistryRequestException InvalidLink(string link) =>
+        new($"レジストリが不正な次ページの位置（Link ヘッダ）を返したため、一覧の取得を中止しました: {link[..Math.Min(link.Length, 200)]}");
+
+    private HttpClient ClientFor(RegistryCredential credential)
+    {
+        lock (_clientsLock)
+        {
+            if (_clients.TryGetValue(credential.Registry, out var cached))
+            {
+                if (cached.Credential == credential) return cached.Client;
+                // 認証情報・TLS設定が変わった
+                cached.Client.Dispose();
+            }
+            var client = new HttpClient(_handlerFactory(credential)) { Timeout = RequestTimeout };
+            _clients[credential.Registry] = (credential, client);
+            return client;
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_clientsLock)
+        {
+            foreach (var (_, client) in _clients.Values) client.Dispose();
+            _clients.Clear();
+        }
     }
 
     private async Task<HttpResponseMessage> SendAsync(RegistryCredential credential, HttpMethod method, string path, CancellationToken cancellationToken)
     {
-        using var client = new HttpClient(_handlerFactory(credential)) { Timeout = TimeSpan.FromSeconds(30) };
+        var client = ClientFor(credential);
         try
         {
             return await client.SendAsync(new HttpRequestMessage(method, $"https://{credential.Registry}/{path}"), cancellationToken);
@@ -131,6 +192,10 @@ public sealed partial class RegistryBrowser
             // サーバーの要求（WWW-Authenticate）に応じて Basic / Digest で認証する
             Credentials = new NetworkCredential(credential.Username, credential.Password),
             PreAuthenticate = true,
+            // 使い回す接続も一定時間で張り直す（レジストリのアドレス変更・DNSの変化に追従する）
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            // 別ホストへのリダイレクトで認証情報を送らない
+            AllowAutoRedirect = false,
         };
         if (!credential.TlsVerify)
             handler.SslOptions.RemoteCertificateValidationCallback = (_, _, _, _) => true;
