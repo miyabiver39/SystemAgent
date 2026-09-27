@@ -107,15 +107,19 @@ public sealed class LocalSecretStore : ILocalSecretStore
 
     public string? GetSecret(string name) => _data.Items?.GetValueOrDefault(name);
 
-    public void SetSecret(string name, string? value)
+    public void SetSecret(string name, string? value) => UpdateSecret(name, _ => value);
+
+    public string? UpdateSecret(string name, Func<string?, string?> update)
     {
         lock (_lock)
         {
+            var value = update(GetSecret(name));
             var items = new Dictionary<string, string>(_data.Items ?? []);
             if (value is null) items.Remove(name);
             else items[name] = value;
             _data = _data with { Items = items };
             Save();
+            return value;
         }
     }
 
