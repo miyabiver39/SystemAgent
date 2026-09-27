@@ -208,6 +208,10 @@ public sealed class ClusterService(
         return GetStatus();
     }
 
+    /// <summary>クラスタCAのノードID（中央DBに記録したもの）。未初期化ならnull。</summary>
+    public async Task<Guid?> GetCaNodeIdAsync(CancellationToken cancellationToken) =>
+        Guid.TryParse(await SettingAsync(CaNodeIdSetting, cancellationToken), out var id) ? id : null;
+
     public async Task<string?> GetCaCertificatePemAsync(CancellationToken cancellationToken) =>
         identity.Current?.CaCertificate.ExportCertificatePem() ?? await SettingAsync(CaCertificateSetting, cancellationToken);
 

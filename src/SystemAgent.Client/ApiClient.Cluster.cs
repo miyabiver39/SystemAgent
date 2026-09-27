@@ -9,8 +9,9 @@ public sealed partial class ApiClient
     public Task<List<NodeInfo>> GetNodesAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<NodeInfo>>(HttpMethod.Get, "api/nodes", null, authorize: true, cancellationToken);
 
-    public Task DeleteNodeAsync(Guid id, CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Delete, $"api/nodes/{id}", null, authorize: true, cancellationToken);
+    /// <param name="force">このノード自身・クラスタCAのノードでも削除する。</param>
+    public Task DeleteNodeAsync(Guid id, bool force = false, CancellationToken cancellationToken = default) =>
+        SendAndDisposeAsync(HttpMethod.Delete, $"api/nodes/{id}{(force ? "?force=true" : "")}", null, authorize: true, cancellationToken);
 
     public Task<ClusterStatusResponse> GetClusterAsync(CancellationToken cancellationToken = default) =>
         SendAsync<ClusterStatusResponse>(HttpMethod.Get, "api/cluster", null, authorize: true, cancellationToken);
