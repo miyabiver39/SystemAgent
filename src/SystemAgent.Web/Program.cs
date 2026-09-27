@@ -73,6 +73,9 @@ builder.Services.AddAuthorization(options => options.DefaultPolicy = new Authori
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+// ログイン・初期セットアップの総当たり対策（接続元ごとのレート制限と、アカウントごとのロックアウト）
+builder.Services.AddAuthRateLimiting(builder.Configuration);
+builder.Services.AddSingleton<LoginThrottle>();
 
 // WebUI: 画面文字列はリソースファイルに外出しする（ADR-011）
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
@@ -118,6 +121,7 @@ app.UseWhen(
 
 // HTTPSリダイレクトは行わない。TLS終端はNginx(任意)に委ね、HTTP平文も許可する（ADR-004）。
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
