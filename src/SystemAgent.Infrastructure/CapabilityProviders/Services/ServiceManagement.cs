@@ -28,6 +28,31 @@ public sealed class ServiceManagement(CapabilityTemplateResolver resolver, IConf
         return new TemplateServiceManagerProvider(executor);
     }
 
+    /// <summary>状態の取得（systemctl の起動）を同時に行う最大数。</summary>
+    public const int MaxParallelStatus = 4;
+
+    /// <summary>
+    /// 管理対象サービスのうち、このノードに存在するものの状態（設定の順）。1件ずつ systemctl を起動すると件数分待つため、
+    /// 同時に MaxParallelStatus 件まで並行して取得する。別名（例: mysqld → mariadb）で同じサービスが重複しないようにする。
+    /// </summary>
+    public async Task<IReadOnlyList<ServiceStatus>> ListExistingAsync(IServiceManagerProvider provider, CancellationToken cancellationToken)
+    {
+        using var throttle = new SemaphoreSlim(MaxParallelStatus);
+        var statuses = await Task.WhenAll(Managed.Select(async unit =>
+        {
+            await throttle.WaitAsync(cancellationToken);
+            try
+            {
+                return await provider.GetStatusAsync(unit, cancellationToken);
+            }
+            finally
+            {
+                throttle.Release();
+            }
+        }));
+        return statuses.Where(s => s.Exists).DistinctBy(s => s.Name).ToList();
+    }
+
     /// <summary>操作できない場合は理由を返す。</summary>
     public string? Deny(string unit, ServiceAction action)
     {
