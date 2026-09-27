@@ -1,9 +1,9 @@
-using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using SystemAgent.Core.CapabilityProviders;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Security;
+using SystemAgent.Infrastructure.Security;
 using SystemAgent.Core.Errors;
 
 namespace SystemAgent.Infrastructure.CapabilityProviders.Containers;
@@ -48,9 +48,7 @@ public sealed record RegistryCredential(string Registry, string Username, string
 /// </summary>
 public sealed class RegistryService(ILocalSecretStore secrets, ILogger<RegistryService> logger)
 {
-    private const string SecretName = "container.registries";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
-    private readonly Lock _lock = new();
+    private readonly SecretJsonStore<List<RegistryCredential>> _store = new(secrets, "container.registries");
 
     public IReadOnlyList<RegistryView> List() =>
         Load().OrderBy(c => c.Registry).Select(c => new RegistryView(c.Registry, c.Username, c.UpdatedAt, c.TlsVerify)).ToList();
@@ -109,14 +107,7 @@ public sealed class RegistryService(ILocalSecretStore secrets, ILogger<RegistryS
         return credential.TlsVerify;
     }
 
-    private List<RegistryCredential> Load() =>
-        secrets.GetSecret(SecretName) is { } json ? JsonSerializer.Deserialize<List<RegistryCredential>>(json, Json) ?? [] : [];
+    private List<RegistryCredential> Load() => _store.Load() ?? [];
 
-    private void Update(Func<List<RegistryCredential>, List<RegistryCredential>> change)
-    {
-        lock (_lock)
-        {
-            secrets.SetSecret(SecretName, JsonSerializer.Serialize(change(Load()), Json));
-        }
-    }
+    private void Update(Func<List<RegistryCredential>, List<RegistryCredential>> change) => _store.Update(current => change(current ?? []));
 }

@@ -141,7 +141,7 @@ public sealed class DeployTests : IDisposable
         var service = Service();
         service.Save(Spec("web", "TZ=Asia/Tokyo", "DB_PASSWORD=p@ss=word"));
         var view = (await service.GetAsync("web"))!;
-        Assert.Equal(["TZ=Asia/Tokyo", $"DB_PASSWORD={DeploymentService.Masked}"], view.Spec.Environment);
+        Assert.Equal(["TZ=Asia/Tokyo", $"DB_PASSWORD={DeploymentSpecs.Masked}"], view.Spec.Environment);
 
         // 画面から伏せ字のまま保存し直しても値は失われない
         service.Save(view.Spec with { Environment = [.. view.Spec.Environment, "MODE=prod"] });
@@ -149,7 +149,7 @@ public sealed class DeployTests : IDisposable
         Assert.Contains("DB_PASSWORD=p@ss=word", _runtime.LastRun!.Environment);
         Assert.Contains("MODE=prod", _runtime.LastRun.Environment);
 
-        Assert.Throws<ArgumentException>(() => service.Save(Spec("api", $"API_TOKEN={DeploymentService.Masked}")));
+        Assert.Throws<ArgumentException>(() => service.Save(Spec("api", $"API_TOKEN={DeploymentSpecs.Masked}")));
     }
 
     [Theory]
@@ -162,14 +162,14 @@ public sealed class DeployTests : IDisposable
     [InlineData("web", "registry.example.com/app/web", "8080:80", "A=line\nbreak", "/a:/b")]
     [InlineData("web", "registry.example.com/app/web", "8080:80", "A=1", "../etc:/b")]
     public void Validate_RejectsInvalidSpec(string name, string image, string port, string env, string volume) =>
-        Assert.Throws<ArgumentException>(() => DeploymentService.Validate(new DeploymentSpec(name, image, [port], [env], [volume])));
+        Assert.Throws<ArgumentException>(() => DeploymentSpecs.Validate(new DeploymentSpec(name, image, [port], [env], [volume])));
 
     [Fact]
     public void Validate_RejectsPortsWithPodAndDuplicateEnv()
     {
-        Assert.Throws<ArgumentException>(() => DeploymentService.Validate(Spec() with { Pod = "app" }));
-        Assert.Throws<ArgumentException>(() => DeploymentService.Validate(Spec("web", "A=1", "A=2")));
-        var ok = DeploymentService.Validate(new DeploymentSpec(" web ", "localhost:5050/app/web", [" ", "127.0.0.1:8080:80/tcp"], [], ["data:/var/lib/app"]));
+        Assert.Throws<ArgumentException>(() => DeploymentSpecs.Validate(Spec() with { Pod = "app" }));
+        Assert.Throws<ArgumentException>(() => DeploymentSpecs.Validate(Spec("web", "A=1", "A=2")));
+        var ok = DeploymentSpecs.Validate(new DeploymentSpec(" web ", "localhost:5050/app/web", [" ", "127.0.0.1:8080:80/tcp"], [], ["data:/var/lib/app"]));
         Assert.Equal(("web", 1), (ok.Name, ok.Ports.Count));
     }
 

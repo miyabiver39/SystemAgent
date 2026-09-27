@@ -1,6 +1,6 @@
-using System.Text.Json;
 using SystemAgent.Core.Ha;
 using SystemAgent.Core.Security;
+using SystemAgent.Infrastructure.Security;
 
 namespace SystemAgent.Infrastructure.Ha;
 
@@ -35,11 +35,9 @@ public sealed record HaSettings(
 
 public sealed class HaSettingsStore(ILocalSecretStore secrets)
 {
-    private const string SecretName = "ha.settings";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private readonly SecretJsonStore<HaSettings> _store = new(secrets, "ha.settings");
 
-    public HaSettings? Load() =>
-        secrets.GetSecret(SecretName) is { } json ? JsonSerializer.Deserialize<HaSettings>(json, Json) : null;
+    public HaSettings? Load() => _store.Load();
 
-    public void Save(HaSettings settings) => secrets.SetSecret(SecretName, JsonSerializer.Serialize(settings, Json));
+    public void Save(HaSettings settings) => _store.Save(settings);
 }

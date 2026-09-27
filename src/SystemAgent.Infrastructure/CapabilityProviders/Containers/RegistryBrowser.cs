@@ -51,7 +51,7 @@ public sealed partial class RegistryBrowser
     public async Task DeleteTagAsync(string registry, string repository, string tag, CancellationToken cancellationToken = default)
     {
         ValidateRepository(repository);
-        if (!TagPattern().IsMatch(tag)) throw new ArgumentException($"タグが不正です: {tag}");
+        if (!ContainerNames.IsValidTag(tag)) throw new ArgumentException($"タグが不正です: {tag}");
         using var response = await SendAsync(Credential(registry), HttpMethod.Delete, $"v2/{repository}/manifests/{tag}", cancellationToken);
         if (response.IsSuccessStatusCode) return;
         throw response.StatusCode switch
@@ -150,9 +150,6 @@ public sealed partial class RegistryBrowser
     // OCI Distribution Spec のリポジトリ名
     [GeneratedRegex(@"^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$")]
     private static partial Regex RepositoryPattern();
-
-    [GeneratedRegex(@"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")]
-    private static partial Regex TagPattern();
 
     [GeneratedRegex(@"<([^>]+)>\s*;\s*rel=""?next""?")]
     private static partial Regex LinkNextPattern();
