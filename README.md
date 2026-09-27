@@ -26,6 +26,7 @@ WebUIとWebAPIは`SystemAgent.Web`に同居し、同一プロセス・同一ポ�
 
 ## ドキュメント
 
+- [アーキテクチャ概要](docs/architecture/README.md) — 全体の組み立て・データの置き場所・障害時の振る舞い・拡張の仕方（最初に読む資料）
 - [基本設計書](docs/design/SystemAgent_基本設計書_draft.md)
 - [ADR一覧](docs/adr/)
 - [QA掲示板](docs/qa/README.md) — 未決事項はここで質問・回答をやり取りする
