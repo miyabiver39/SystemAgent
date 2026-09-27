@@ -48,6 +48,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.NodeName).HasMaxLength(253);
             e.HasIndex(x => x.OccurredAt);
             e.HasIndex(x => x.Action);
+            // 実行者・ノードでの絞り込みと、絞り込みの選択肢（DISTINCT）を全件走査にしないため
+            e.HasIndex(x => x.ActorUserName);
+            e.HasIndex(x => x.NodeName);
         });
     }
 }

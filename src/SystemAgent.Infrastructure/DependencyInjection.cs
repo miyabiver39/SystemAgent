@@ -58,6 +58,7 @@ public static class DependencyInjection
             new LocalSecretStore(secretStorePath, sp.GetRequiredService<ILogger<LocalSecretStore>>()));
 
         services.AddSingleton(TimeProvider.System);
+        services.AddMemoryCache();
 
         // Capability Provider（基本設計書 7章）
         services.AddSingleton<ICommandRunner, ProcessCommandRunner>();
