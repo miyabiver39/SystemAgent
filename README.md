@@ -122,6 +122,10 @@ dotnet publish src/SystemAgent.Cli -c Release -r linux-x64 --self-contained -p:P
 
 [ADR-024](docs/adr/0024-app-deployment.md)。WebUIの「デプロイ」画面、または`systemagent deploy define <アプリ> --image <イメージ> -p 8080:80 ...` → `systemagent deploy run <アプリ> <タグ>`。起動後に動作し続けなかった場合は自動で元のコンテナに戻す。`deploy rollback`で1つ前のタグに戻す。Podmanでは`podman-restart.service`を有効にしておくと、OS再起動後もコンテナが起動する。
 
+## 監査ログ
+
+[ADR-025](docs/adr/0025-audit-log-viewer.md)。全ノードの操作記録（中央DB）を WebUI の「監査ログ」画面、または`systemagent audit list --action deploy --since 2026-09-01`で確認できる。`systemagent audit export -o audit.csv`でCSV保存（保存したこと自体も記録される）。
+
 ## 冗長化（HA）
 
 [ADR-022](docs/adr/0022-keepalived-and-db-promotion.md)。WebUIの「冗長化（HA）」画面または`systemagent ha set` → `systemagent ha apply`で keepalived を設定する。VIPを保持したノードのDBがマスターになり、それ以外は読み取り専用になる。元マスターの復帰は既定で承認待ち（`systemagent ha rejoin`）。MariaDB側の前提（log_bin・log_slave_updates・gtid_strict_mode・一意のserver_id）は運用者が設定する。

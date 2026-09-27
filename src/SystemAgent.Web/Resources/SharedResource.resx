@@ -160,6 +160,26 @@
   <data name="Deploy_Saved" xml:space="preserve"><value>{0} の定義を保存しました。</value></data>
   <data name="Deploy_Done" xml:space="preserve"><value>{0} をデプロイしました。</value></data>
   <data name="Deploy_Removed" xml:space="preserve"><value>{0} を削除しました。</value></data>
+  <data name="Nav_Audit" xml:space="preserve"><value>監査ログ</value></data>
+  <data name="Audit_Title" xml:space="preserve"><value>監査ログ</value></data>
+  <data name="Audit_Hint" xml:space="preserve"><value>全ノードの操作の記録です（中央DBに保存）。DBが停止している間の操作はDBに記録されず、各ノードのアプリログにのみ残ります。</value></data>
+  <data name="Audit_From" xml:space="preserve"><value>開始日</value></data>
+  <data name="Audit_To" xml:space="preserve"><value>終了日（この日を含む）</value></data>
+  <data name="Audit_Actor" xml:space="preserve"><value>実行者</value></data>
+  <data name="Audit_Action" xml:space="preserve"><value>操作</value></data>
+  <data name="Audit_Node" xml:space="preserve"><value>ノード</value></data>
+  <data name="Audit_Text" xml:space="preserve"><value>内容に含む文字</value></data>
+  <data name="Audit_All" xml:space="preserve"><value>（すべて）</value></data>
+  <data name="Audit_Search" xml:space="preserve"><value>検索</value></data>
+  <data name="Audit_Clear" xml:space="preserve"><value>条件をクリア</value></data>
+  <data name="Audit_Export" xml:space="preserve"><value>CSVで保存</value></data>
+  <data name="Audit_Empty" xml:space="preserve"><value>条件に合う記録はありません。</value></data>
+  <data name="Audit_Count" xml:space="preserve"><value>{0} 件中 {1}〜{2} 件目（新しい順）</value></data>
+  <data name="Audit_Newer" xml:space="preserve"><value>← 新しい記録</value></data>
+  <data name="Audit_Older" xml:space="preserve"><value>古い記録 →</value></data>
+  <data name="Audit_OccurredAt" xml:space="preserve"><value>日時</value></data>
+  <data name="Audit_Detail" xml:space="preserve"><value>内容</value></data>
+  <data name="Audit_FilterThis" xml:space="preserve"><value>この操作で絞り込む</value></data>
   <data name="Nav_Nodes" xml:space="preserve"><value>ノード</value></data>
   <data name="Nav_Users" xml:space="preserve"><value>ユーザー</value></data>
   <data name="Nav_Account" xml:space="preserve"><value>アカウント</value></data>

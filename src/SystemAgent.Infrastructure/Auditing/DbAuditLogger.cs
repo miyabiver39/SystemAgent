@@ -1,16 +1,21 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SystemAgent.Core.Auditing;
+using SystemAgent.Infrastructure.Cluster;
 using SystemAgent.Infrastructure.Persistence;
 using SystemAgent.Infrastructure.Persistence.Entities;
 
 namespace SystemAgent.Infrastructure.Auditing;
 
-public sealed class DbAuditLogger(AppDbContext db, TimeProvider time, ILogger<DbAuditLogger> logger) : IAuditLogger
+public sealed class DbAuditLogger(AppDbContext db, TimeProvider time, ClusterEndpointSettings endpoint, ILogger<DbAuditLogger> logger)
+    : IAuditLogger
 {
     // DB障害中に操作のたびに接続タイムアウトを待たせないよう、失敗後しばらくはDB記録を試みない
     private static readonly TimeSpan RetryBackoff = TimeSpan.FromSeconds(30);
     private static long _skipDbUntilTicks;
+
+    /// <summary>DB復旧・マイグレーション直後に、待機せず記録を再開する。</summary>
+    public static void ResetBackoff() => Interlocked.Exchange(ref _skipDbUntilTicks, 0);
 
     public async Task LogAsync(string actor, string action, string? detail = null, CancellationToken cancellationToken = default)
     {
@@ -27,6 +32,7 @@ public sealed class DbAuditLogger(AppDbContext db, TimeProvider time, ILogger<Db
             Action = action,
             Detail = detail,
             OccurredAt = now,
+            NodeName = endpoint.NodeName,
         });
 
         try

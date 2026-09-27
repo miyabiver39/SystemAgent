@@ -43,6 +43,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         modelBuilder.Entity<AuditLogEntity>(e =>
         {
             e.HasKey(x => x.Id);
+            e.Property(x => x.ActorUserName).HasMaxLength(256);
+            e.Property(x => x.Action).HasMaxLength(64);
+            e.Property(x => x.NodeName).HasMaxLength(253);
+            e.HasIndex(x => x.OccurredAt);
+            e.HasIndex(x => x.Action);
         });
     }
 }

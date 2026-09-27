@@ -1,7 +1,7 @@
 namespace SystemAgent.Infrastructure.Persistence.Entities;
 
 /// <summary>
-/// 秘密情報変更操作等の操作ログ（ADR-009: 初期リリースはDB記録のみ、閲覧UIなし）。
+/// 操作ログ（ADR-009。閲覧はADR-025）。
 /// </summary>
 public class AuditLogEntity
 {
@@ -10,4 +10,7 @@ public class AuditLogEntity
     public required string Action { get; set; }
     public string? Detail { get; set; }
     public DateTimeOffset OccurredAt { get; set; }
+
+    /// <summary>操作を実行したノード（中央DBに全ノードの記録が集まるため）。導入前の記録はnull。</summary>
+    public string? NodeName { get; set; }
 }

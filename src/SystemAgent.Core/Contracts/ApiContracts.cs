@@ -29,6 +29,23 @@ public sealed record PullImageRequest([Required, MaxLength(512)] string Image);
 
 public sealed record ImportImageResponse(string Output);
 
+/// <summary>監査ログの検索条件。From以上・To未満。Actionは前方一致、Textは内容の部分一致。</summary>
+public sealed record AuditLogQuery(
+    DateTimeOffset? From = null,
+    DateTimeOffset? To = null,
+    string? Actor = null,
+    string? Action = null,
+    string? Node = null,
+    string? Text = null,
+    int Page = 1,
+    int PageSize = 50);
+
+public sealed record AuditLogEntry(long Id, DateTimeOffset OccurredAt, string Actor, string Action, string? Detail, string? NodeName);
+
+public sealed record AuditLogPage(IReadOnlyList<AuditLogEntry> Items, int TotalCount, int Page, int PageSize);
+
+public sealed record AuditLogFacets(IReadOnlyList<string> Actions, IReadOnlyList<string> Actors, IReadOnlyList<string> Nodes);
+
 public sealed record DeployRequest([Required, MaxLength(128)] string Tag);
 
 /// <summary>登録済みのコンテナレジストリ（パスワードは返さない）。</summary>

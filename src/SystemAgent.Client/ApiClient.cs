@@ -165,6 +165,36 @@ public sealed class ApiClient(HttpClient http, ITokenProvider tokens)
     public Task PullImageAsync(string image, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Post, "api/images/pull", new PullImageRequest(image), authorize: true, cancellationToken);
 
+    public Task<AuditLogPage> GetAuditLogsAsync(AuditLogQuery query, CancellationToken cancellationToken = default) =>
+        SendAsync<AuditLogPage>(HttpMethod.Get, $"api/audit?{AuditQueryString(query)}", null, authorize: true, cancellationToken);
+
+    public Task<AuditLogFacets> GetAuditFacetsAsync(CancellationToken cancellationToken = default) =>
+        SendAsync<AuditLogFacets>(HttpMethod.Get, "api/audit/facets", null, authorize: true, cancellationToken);
+
+    /// <summary>条件に合う監査ログをCSVで受け取る（ストリームのまま）。</summary>
+    public async Task<Stream> ExportAuditCsvAsync(AuditLogQuery query, CancellationToken cancellationToken = default)
+    {
+        var response = await SendCoreAsync(HttpMethod.Get, $"api/audit/export?{AuditQueryString(query)}", null, authorize: true, cancellationToken,
+            HttpCompletionOption.ResponseHeadersRead);
+        return new ResponseStream(response, await response.Content.ReadAsStreamAsync(cancellationToken));
+    }
+
+    private static string AuditQueryString(AuditLogQuery q)
+    {
+        var parts = new List<string> { $"page={q.Page}", $"pageSize={q.PageSize}" };
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) parts.Add($"{key}={Uri.EscapeDataString(value.Trim())}");
+        }
+        Add("from", q.From?.ToString("o"));
+        Add("to", q.To?.ToString("o"));
+        Add("actor", q.Actor);
+        Add("action", q.Action);
+        Add("node", q.Node);
+        Add("text", q.Text);
+        return string.Join('&', parts);
+    }
+
     public Task<List<DeploymentView>> GetDeploymentsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<List<DeploymentView>>(HttpMethod.Get, "api/deployments", null, authorize: true, cancellationToken);
 

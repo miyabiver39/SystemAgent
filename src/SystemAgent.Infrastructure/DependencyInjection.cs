@@ -85,6 +85,7 @@ public static class DependencyInjection
         services.AddScoped<INodeService, NodeService>();
         services.AddScoped<IUserService, UserService>();
         services.AddScoped<IAuditLogger, DbAuditLogger>();
+        services.AddScoped<AuditLogReader>();
         services.AddScoped<IDatabaseStatus, DatabaseStatus>();
 
         return services;

@@ -78,5 +78,10 @@ public sealed class DatabaseMigrator(AppDbContext db)
         (await db.Database.GetPendingMigrationsAsync(cancellationToken)).ToList();
 
     /// <summary>未適用のマイグレーションを適用する。複数ノードから同時に呼ばれてもEF Coreのロックで直列化される。</summary>
-    public Task MigrateAsync(CancellationToken cancellationToken) => db.Database.MigrateAsync(cancellationToken);
+    public async Task MigrateAsync(CancellationToken cancellationToken)
+    {
+        await db.Database.MigrateAsync(cancellationToken);
+        // 更新直後（列追加前）の記録失敗で待機中でも、すぐに監査ログの記録を再開する
+        Auditing.DbAuditLogger.ResetBackoff();
+    }
 }

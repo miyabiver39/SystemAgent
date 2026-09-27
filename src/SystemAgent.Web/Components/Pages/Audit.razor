@@ -1,0 +1,190 @@
+@page "/audit"
+@inject ApiClient Api
+@inject IJSRuntime JS
+
+<PageTitle>@L["Audit_Title"] - @L["AppName"]</PageTitle>
+
+<h1>@L["Audit_Title"]</h1>
+<p class="hint">@L["Audit_Hint"]</p>
+
+@if (_error is not null)
+{
+    <p class="notice error">@_error</p>
+}
+
+<section class="card">
+    <EditForm Model="_filter" OnSubmit="SearchAsync" FormName="audit-filter" class="grid-form">
+        <label>@L["Audit_From"]<InputDate @bind-Value="_filter.From" /></label>
+        <label>@L["Audit_To"]<InputDate @bind-Value="_filter.To" /></label>
+        <label>
+            @L["Audit_Actor"]
+            <InputSelect @bind-Value="_filter.Actor">
+                <option value="">@L["Audit_All"]</option>
+                @foreach (var actor in _facets?.Actors ?? [])
+                {
+                    <option value="@actor">@actor</option>
+                }
+            </InputSelect>
+        </label>
+        <label>
+            @L["Audit_Action"]
+            <InputSelect @bind-Value="_filter.Action">
+                <option value="">@L["Audit_All"]</option>
+                @foreach (var group in ActionGroups)
+                {
+                    <option value="@group">@group.*</option>
+                }
+                @foreach (var action in _facets?.Actions ?? [])
+                {
+                    <option value="@action">@action</option>
+                }
+            </InputSelect>
+        </label>
+        <label>
+            @L["Audit_Node"]
+            <InputSelect @bind-Value="_filter.Node">
+                <option value="">@L["Audit_All"]</option>
+                @foreach (var node in _facets?.Nodes ?? [])
+                {
+                    <option value="@node">@node</option>
+                }
+            </InputSelect>
+        </label>
+        <label>@L["Audit_Text"]<InputText @bind-Value="_filter.Text" /></label>
+        <div class="form-actions">
+            <button type="submit" class="primary" disabled="@_busy">@L["Audit_Search"]</button>
+            <button type="button" class="link" @onclick="ClearAsync">@L["Audit_Clear"]</button>
+            <button type="button" class="link" disabled="@_busy" @onclick="ExportAsync">@L["Audit_Export"]</button>
+        </div>
+    </EditForm>
+</section>
+
+@if (_page is null)
+{
+    <p class="muted">@L["Common_Loading"]</p>
+}
+else if (_page.TotalCount == 0)
+{
+    <p class="muted">@L["Audit_Empty"]</p>
+}
+else
+{
+    <div class="section-header">
+        <span class="hint">@string.Format(L["Audit_Count"], _page.TotalCount, (_page.Page - 1) * _page.PageSize + 1, (_page.Page - 1) * _page.PageSize + _page.Items.Count)</span>
+        <button type="button" class="link" disabled="@(_busy || _page.Page <= 1)" @onclick="() => GoAsync(_page.Page - 1)">@L["Audit_Newer"]</button>
+        <button type="button" class="link" disabled="@(_busy || _page.Page * _page.PageSize >= _page.TotalCount)" @onclick="() => GoAsync(_page.Page + 1)">@L["Audit_Older"]</button>
+    </div>
+    <table>
+        <thead>
+            <tr><th>@L["Audit_OccurredAt"]</th><th>@L["Audit_Actor"]</th><th>@L["Audit_Action"]</th><th>@L["Audit_Node"]</th><th>@L["Audit_Detail"]</th></tr>
+        </thead>
+        <tbody>
+            @foreach (var e in _page.Items)
+            {
+                <tr @key="e.Id">
+                    <td style="white-space:nowrap">@e.OccurredAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    <td>@e.Actor</td>
+                    <td><button type="button" class="link" title="@L["Audit_FilterThis"]" @onclick="() => FilterActionAsync(e.Action)">@e.Action</button></td>
+                    <td>@(e.NodeName ?? "-")</td>
+                    <td style="white-space:pre-wrap;word-break:break-all">@e.Detail</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private const int PageSize = 100;
+
+    private AuditLogPage? _page;
+    private AuditLogFacets? _facets;
+    private Filter _filter = new();
+    private string? _error;
+    private bool _busy;
+
+    /// <summary>"deploy.run" 等の先頭部分（前方一致でまとめて絞り込める）。</summary>
+    private IEnumerable<string> ActionGroups =>
+        (_facets?.Actions ?? []).Where(a => a.Contains('.')).Select(a => a[..a.IndexOf('.')]).Distinct();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _facets = await Api.GetAuditFacetsAsync();
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+            return;
+        }
+        await GoAsync(1);
+    }
+
+    private Task SearchAsync() => GoAsync(1);
+
+    private Task ClearAsync()
+    {
+        _filter = new Filter();
+        return GoAsync(1);
+    }
+
+    private Task FilterActionAsync(string action)
+    {
+        _filter.Action = action;
+        return GoAsync(1);
+    }
+
+    private async Task GoAsync(int page)
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            _page = await Api.GetAuditLogsAsync(Query(page));
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ExportAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            await using var stream = await Api.ExportAuditCsvAsync(Query(1));
+            using var reference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("systemAgentDownload", $"audit-{DateTime.Now:yyyyMMdd-HHmmss}.csv", reference);
+        }
+        catch (ApiException ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    /// <summary>日付はこのサーバーの時刻帯で解釈する。終了日はその日の終わりまで含める。</summary>
+    private AuditLogQuery Query(int page) => new(
+        _filter.From is { } from ? new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeZoneInfo.Local.GetUtcOffset(from.ToDateTime(TimeOnly.MinValue))) : null,
+        _filter.To is { } to ? new DateTimeOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue), TimeZoneInfo.Local.GetUtcOffset(to.AddDays(1).ToDateTime(TimeOnly.MinValue))) : null,
+        _filter.Actor, _filter.Action, _filter.Node, _filter.Text, page, PageSize);
+
+    private sealed class Filter
+    {
+        public DateOnly? From { get; set; }
+        public DateOnly? To { get; set; }
+        public string? Actor { get; set; }
+        public string? Action { get; set; }
+        public string? Node { get; set; }
+        public string? Text { get; set; }
+    }
+}
