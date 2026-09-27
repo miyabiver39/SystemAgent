@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SystemAgent.Core.Contracts;
+using SystemAgent.Infrastructure.CapabilityProviders.Containers;
 using SystemAgent.Web.Api;
 
 namespace SystemAgent.Web.Controllers;

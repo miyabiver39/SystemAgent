@@ -73,6 +73,7 @@ public static class DependencyInjection
         services.AddSingleton<RegistryService>();
         services.AddSingleton<RegistryBrowser>();
         services.AddSingleton<ImageTransferService>();
+        services.AddScoped<ImageImporter>();
         services.AddSingleton<DeploymentService>();
         services.AddSingleton<NtpResolver>();
         services.AddSingleton<NetworkResolver>();
