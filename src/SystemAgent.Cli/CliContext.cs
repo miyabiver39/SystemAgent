@@ -95,6 +95,11 @@ internal sealed class CliContext
             Console.Error.WriteLine($"エラー: {url} に接続できません（{ex.Message}）。--url を確認してください。");
             return 1;
         }
+        catch (TimeoutException ex)
+        {
+            Console.Error.WriteLine($"エラー: {ex.Message}");
+            return 1;
+        }
     }
 
     /// <summary>このノードの /etc/systemagent/systemagent.json の Urls から、ローカルの接続先を決める（ポートを変更している場合のため）。</summary>

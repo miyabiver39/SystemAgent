@@ -28,28 +28,44 @@ public sealed partial class ApiClient(HttpClient http, ITokenProvider tokens)
     public ApiClient ForNode(Guid? nodeId) =>
         nodeId is null ? this : new ApiClient(http, tokens) { _nodePrefix = $"api/nodes/{nodeId}/proxy/" };
 
-    /// <summary>イメージのpull/取り込み（テンプレート上の上限30分）を待てるHttpClientのタイムアウト。</summary>
-    public static readonly TimeSpan HttpTimeout = TimeSpan.FromMinutes(35);
+    /// <summary>通常の操作（一覧の取得・設定の保存など）の応答を待つ時間。サーバーが応答しないときに長く待たせない。</summary>
+    public static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(60);
+
+    /// <summary>サーバー側でOSコマンドの完了を待つ操作（サービス・コンテナの起動停止等。テンプレート上の上限180秒）の応答を待つ時間。</summary>
+    public static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(4);
+
+    /// <summary>イメージの pull/push/取り込み・デプロイ・DBのバックアップと復元（テンプレート上の上限30分）の応答を待つ時間。</summary>
+    public static readonly TimeSpan LongOperationTimeout = TimeSpan.FromMinutes(35);
+
+    /// <summary>
+    /// HttpClient 自体のタイムアウト。要求ごとの待ち時間（DefaultTimeout / CommandTimeout / LongOperationTimeout）で打ち切るため、
+    /// 最も長いものに合わせる。
+    /// </summary>
+    public static readonly TimeSpan HttpTimeout = LongOperationTimeout;
 
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
         Converters = { new JsonStringEnumConverter() },
     };
 
-    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken)
+    /// <param name="timeout">応答を待つ時間（省略時は DefaultTimeout）。</param>
+    private async Task<T> SendAsync<T>(HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
     {
-        using var response = await SendCoreAsync(method, path, body, authorize, cancellationToken);
+        using var response = await SendCoreAsync(method, path, body, authorize, cancellationToken, timeout: timeout);
         return (await response.Content.ReadFromJsonAsync<T>(Json, cancellationToken))!;
     }
 
-    private async Task SendAndDisposeAsync(HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken)
+    private async Task SendAndDisposeAsync(HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken,
+        TimeSpan? timeout = null)
     {
-        using var _ = await SendCoreAsync(method, path, body, authorize, cancellationToken);
+        using var _ = await SendCoreAsync(method, path, body, authorize, cancellationToken, timeout: timeout);
     }
 
+    /// <param name="completion">ResponseHeadersRead の場合、timeout は応答ヘッダを受け取るまでに適用する（本文の読み込みには適用しない）。</param>
     private async Task<HttpResponseMessage> SendCoreAsync(
         HttpMethod method, string path, object? body, bool authorize, CancellationToken cancellationToken,
-        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead)
+        HttpCompletionOption completion = HttpCompletionOption.ResponseContentRead, TimeSpan? timeout = null)
     {
         if (_nodePrefix is not null && path.StartsWith("api/", StringComparison.Ordinal))
         {
@@ -69,7 +85,19 @@ public sealed partial class ApiClient(HttpClient http, ITokenProvider tokens)
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        var response = await http.SendAsync(request, completion, cancellationToken);
+        var limit = timeout ?? DefaultTimeout;
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(limit);
+        HttpResponseMessage response;
+        try
+        {
+            response = await http.SendAsync(request, completion, timeoutCts.Token);
+        }
+        catch (OperationCanceledException ex) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException(
+                $"サーバーから {limit.TotalSeconds:0} 秒以内に応答がありませんでした。処理がサーバー側で続いている場合があるため、状態を確認してください。", ex);
+        }
         if (response.IsSuccessStatusCode) return response;
 
         using (response)

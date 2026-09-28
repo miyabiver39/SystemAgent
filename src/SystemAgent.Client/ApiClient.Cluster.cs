@@ -23,7 +23,7 @@ public sealed partial class ApiClient
         SendAsync<JoinTokenResponse>(HttpMethod.Post, "api/cluster/tokens", new CreateJoinTokenRequest(validMinutes), authorize: true, cancellationToken);
 
     public Task<ClusterStatusResponse> JoinClusterAsync(string token, CancellationToken cancellationToken = default) =>
-        SendAsync<ClusterStatusResponse>(HttpMethod.Post, "api/cluster/join", new JoinClusterRequest(token), authorize: true, cancellationToken);
+        SendAsync<ClusterStatusResponse>(HttpMethod.Post, "api/cluster/join", new JoinClusterRequest(token), authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task<DatabaseSettingsResponse> GetDatabaseAsync(CancellationToken cancellationToken = default) =>
         SendAsync<DatabaseSettingsResponse>(HttpMethod.Get, "api/system/database", null, authorize: true, cancellationToken);
@@ -32,7 +32,7 @@ public sealed partial class ApiClient
         SendAndDisposeAsync(HttpMethod.Put, "api/system/database", request, authorize: true, cancellationToken);
 
     public Task MigrateDatabaseAsync(CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Post, "api/system/database/migrate", null, authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Post, "api/system/database/migrate", null, authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task<HaStatusResponse> GetHaAsync(CancellationToken cancellationToken = default) =>
         SendAsync<HaStatusResponse>(HttpMethod.Get, "api/ha", null, authorize: true, cancellationToken);
@@ -41,22 +41,22 @@ public sealed partial class ApiClient
         SendAndDisposeAsync(HttpMethod.Put, "api/ha", request, authorize: true, cancellationToken);
 
     public Task ApplyHaAsync(CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Post, "api/ha/apply", null, authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Post, "api/ha/apply", null, authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task RejoinHaAsync(CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Post, "api/ha/rejoin", null, authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Post, "api/ha/rejoin", null, authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task<BackupListResponse> GetBackupsAsync(CancellationToken cancellationToken = default) =>
         SendAsync<BackupListResponse>(HttpMethod.Get, "api/backups", null, authorize: true, cancellationToken);
 
     public Task<BackupFileInfo> CreateBackupAsync(CancellationToken cancellationToken = default) =>
-        SendAsync<BackupFileInfo>(HttpMethod.Post, "api/backups", null, authorize: true, cancellationToken);
+        SendAsync<BackupFileInfo>(HttpMethod.Post, "api/backups", null, authorize: true, cancellationToken, timeout: LongOperationTimeout);
 
     public Task DeleteBackupAsync(string name, CancellationToken cancellationToken = default) =>
         SendAndDisposeAsync(HttpMethod.Delete, $"api/backups/{Uri.EscapeDataString(name)}", null, authorize: true, cancellationToken);
 
     public Task RestoreBackupAsync(string name, CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Post, $"api/backups/{Uri.EscapeDataString(name)}/restore", new RestoreBackupRequest(name), authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Post, $"api/backups/{Uri.EscapeDataString(name)}/restore", new RestoreBackupRequest(name), authorize: true, cancellationToken, timeout: LongOperationTimeout);
 
     /// <summary>バックアップファイルをストリームで取得する（呼び出し側で破棄する）。</summary>
     public async Task<Stream> DownloadBackupAsync(string name, CancellationToken cancellationToken = default)

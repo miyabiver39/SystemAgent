@@ -16,11 +16,11 @@ public sealed partial class ApiClient
         SendAndDisposeAsync(HttpMethod.Put, $"api/deployments/{Uri.EscapeDataString(spec.Name.Trim())}", spec, authorize: true, cancellationToken);
 
     public Task RemoveDeploymentAsync(string name, bool removeContainer, CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Delete, $"api/deployments/{Uri.EscapeDataString(name)}?removeContainer={removeContainer}", null, authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Delete, $"api/deployments/{Uri.EscapeDataString(name)}?removeContainer={removeContainer}", null, authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task<DeploymentView> DeployAsync(string name, string tag, CancellationToken cancellationToken = default) =>
-        SendAsync<DeploymentView>(HttpMethod.Post, $"api/deployments/{Uri.EscapeDataString(name)}/deploy", new DeployRequest(tag), authorize: true, cancellationToken);
+        SendAsync<DeploymentView>(HttpMethod.Post, $"api/deployments/{Uri.EscapeDataString(name)}/deploy", new DeployRequest(tag), authorize: true, cancellationToken, timeout: LongOperationTimeout);
 
     public Task<DeploymentView> RollbackAsync(string name, CancellationToken cancellationToken = default) =>
-        SendAsync<DeploymentView>(HttpMethod.Post, $"api/deployments/{Uri.EscapeDataString(name)}/rollback", null, authorize: true, cancellationToken);
+        SendAsync<DeploymentView>(HttpMethod.Post, $"api/deployments/{Uri.EscapeDataString(name)}/rollback", null, authorize: true, cancellationToken, timeout: LongOperationTimeout);
 }

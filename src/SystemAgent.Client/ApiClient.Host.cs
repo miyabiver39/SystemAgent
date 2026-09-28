@@ -13,7 +13,7 @@ public sealed partial class ApiClient
         SendAsync<ManagedServiceResponse>(HttpMethod.Get, $"api/services/{Uri.EscapeDataString(unit)}", null, authorize: true, cancellationToken);
 
     public Task ServiceActionAsync(string unit, ServiceAction action, CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Post, $"api/services/{Uri.EscapeDataString(unit)}/{action}", null, authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Post, $"api/services/{Uri.EscapeDataString(unit)}/{action}", null, authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task<ServiceLogsResponse> GetServiceLogsAsync(string unit, int lines, CancellationToken cancellationToken = default) =>
         SendAsync<ServiceLogsResponse>(HttpMethod.Get, $"api/services/{Uri.EscapeDataString(unit)}/logs?lines={lines}", null, authorize: true, cancellationToken);
@@ -25,10 +25,10 @@ public sealed partial class ApiClient
         SendAsync<NtpResponse>(HttpMethod.Get, "api/ntp", null, authorize: true, cancellationToken);
 
     public Task SetNtpServersAsync(IReadOnlyList<string> servers, CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Put, "api/ntp/servers", new SetNtpServersRequest(servers), authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Put, "api/ntp/servers", new SetNtpServersRequest(servers), authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task SyncNtpAsync(CancellationToken cancellationToken = default) =>
-        SendAndDisposeAsync(HttpMethod.Post, "api/ntp/sync", null, authorize: true, cancellationToken);
+        SendAndDisposeAsync(HttpMethod.Post, "api/ntp/sync", null, authorize: true, cancellationToken, timeout: CommandTimeout);
 
     public Task<AuditLogPage> GetAuditLogsAsync(AuditLogQuery query, CancellationToken cancellationToken = default) =>
         SendAsync<AuditLogPage>(HttpMethod.Get, $"api/audit?{AuditQueryString(query)}", null, authorize: true, cancellationToken);
