@@ -13,6 +13,7 @@ window.systemAgentDownload = async (fileName, streamRef) => {
 // ファイルはブラウザ内に保持し、アップロード時にサーバーが発行した使い捨てURLへ本文そのまま（octet-stream）で送る。
 window.systemAgentDropZone = {
     init(zone, input, dotnet) {
+        this.destroy(zone, input);
         zone._saFiles = [];
         const add = list => {
             if (zone.classList.contains('disabled') || list.length === 0) return;
@@ -20,15 +21,31 @@ window.systemAgentDropZone = {
             zone._saFiles.push(...files);
             dotnet.invokeMethodAsync('OnFilesAdded', files.map(f => ({ name: f.name, size: f.size })));
         };
-        zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragging'); });
-        zone.addEventListener('dragleave', () => zone.classList.remove('dragging'));
-        zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragging'); add(e.dataTransfer.files); });
-        zone.addEventListener('click', () => { if (!zone.classList.contains('disabled')) input.click(); });
-        zone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zone.click(); } });
-        input.addEventListener('change', () => { add(input.files); input.value = ''; });
+        // destroy で外せるよう、登録したリスナーを要素に覚えておく
+        const zoneListeners = {
+            dragover: e => { e.preventDefault(); zone.classList.add('dragging'); },
+            dragleave: () => zone.classList.remove('dragging'),
+            drop: e => { e.preventDefault(); zone.classList.remove('dragging'); add(e.dataTransfer.files); },
+            click: () => { if (!zone.classList.contains('disabled')) input.click(); },
+            keydown: e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); zone.click(); } },
+        };
+        const inputListeners = { change: () => { add(input.files); input.value = ''; } };
+        for (const [type, listener] of Object.entries(zoneListeners)) zone.addEventListener(type, listener);
+        for (const [type, listener] of Object.entries(inputListeners)) input.addEventListener(type, listener);
+        zone._saListeners = zoneListeners;
+        input._saListeners = inputListeners;
     },
     clear(zone) {
         if (zone._saFiles) zone._saFiles.length = 0;
+    },
+    // コンポーネントの破棄時に呼ぶ。リスナーと保持中のファイル（.NET側への参照を含むクロージャ）を解放する
+    destroy(zone, input) {
+        for (const element of [zone, input]) {
+            if (!element?._saListeners) continue;
+            for (const [type, listener] of Object.entries(element._saListeners)) element.removeEventListener(type, listener);
+            delete element._saListeners;
+        }
+        if (zone) delete zone._saFiles;
     },
     // 完了で取り込み結果（ランタイムの出力）を返す。失敗時はサーバーのエラー内容で reject する
     upload(zone, index, url, dotnet) {

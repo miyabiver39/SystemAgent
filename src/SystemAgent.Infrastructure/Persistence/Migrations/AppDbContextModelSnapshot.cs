@@ -54,6 +54,10 @@ namespace SystemAgent.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Action");
 
+                    b.HasIndex("ActorUserName");
+
+                    b.HasIndex("NodeName");
+
                     b.HasIndex("OccurredAt");
 
                     b.ToTable("AuditLogs");

@@ -96,6 +96,11 @@
             _databaseAvailable = false;
             _form.Emergency = true;
         }
+        catch (ApiException ex)
+        {
+            // 試行回数の制限・ロックアウト（429）など。理由はサーバーのメッセージのとおり
+            _error = ex.Message;
+        }
         finally
         {
             _busy = false;

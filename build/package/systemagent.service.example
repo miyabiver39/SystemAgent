@@ -1,0 +1,55 @@
+# SystemAgent の systemd unit の例（ADR-017: unit は運用側で用意し、root で起動する）。
+# パッケージは unit を有効にしないため、内容を確認・調整してから配置する。
+#
+#   sudo cp /usr/share/doc/systemagent/systemagent.service.example /etc/systemd/system/systemagent.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now systemagent
+#   journalctl -u systemagent -f        # ログ
+#
+# アンインストール時、パッケージは systemagent.service という名前の unit を停止・無効化する（別名にした場合は手動で止める）。
+
+[Unit]
+Description=SystemAgent (server management WebUI/API)
+Documentation=file:///usr/share/doc/systemagent/
+# 他ノード・DB・レジストリと通信するため、ネットワークが使えるようになってから起動する
+Wants=network-online.target
+After=network-online.target
+# 同じホストの MariaDB・コンテナランタイムより後に起動する（無くても起動でき、DB停止中は緊急ログインで操作できる）
+After=mariadb.service mysqld.service podman.service docker.service
+
+[Service]
+Type=simple
+# コンテナ（rootful）・サービス・keepalived/chrony の設定を操作するため root で実行する（ADR-017）
+User=root
+Group=root
+ExecStart=/usr/lib/systemagent/SystemAgent.Web
+WorkingDirectory=/usr/lib/systemagent
+# 設定は /etc/systemagent/systemagent.json。ここでの環境変数はそれより優先される（例: ポートの変更）
+Environment=ASPNETCORE_ENVIRONMENT=Production
+#Environment=ASPNETCORE_URLS=http://0.0.0.0:5000
+
+# 異常終了・強制終了されても自動で起動し直す（短時間に繰り返す場合は StartLimit で止まる）
+Restart=always
+RestartSec=5
+StartLimitIntervalSec=300
+StartLimitBurst=10
+# 終了処理（HAの再参加・DB復元の後始末）を待つ時間
+TimeoutStopSec=60
+
+# イメージの取り込み・コンテナ・DB接続など多数のファイル・ソケットを開くため上限を上げる
+LimitNOFILE=65536
+
+# ログは journald に出す（journalctl -u systemagent）
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=systemagent
+
+# 注意: 一般的なサンドボックス設定の多くは SystemAgent の機能と両立しないため指定していない。
+#  - ProtectSystem=strict/full: /etc の keepalived・chrony の設定を書き換えられなくなる
+#  - PrivateTmp=yes: イメージ取り込みの一時ファイル（/var/tmp）が、コンテナランタイムや他のプロセスから見えなくなる
+#  - ProtectHome=yes/read-only: コンテナにマウントするホスト側のディレクトリ（/home 配下）が使えなくなる
+#  - NoNewPrivileges=yes: SystemAgent が起動したコンテナにも引き継がれ、コンテナ内の setuid が効かなくなる
+# 必要な場合は、上記の影響を確認した上で追加すること。
+
+[Install]
+WantedBy=multi-user.target

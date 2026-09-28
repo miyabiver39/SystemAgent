@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
+using Microsoft.JSInterop;
 using SystemAgent.Client;
 using SystemAgent.Core.Contracts;
 
@@ -25,13 +26,20 @@ public sealed class TokenStore(ProtectedSessionStorage storage, TimeProvider tim
             {
                 var result = await storage.GetAsync<TokenResponse>(StorageKey);
                 _token = result.Success ? result.Value : null;
+                _loaded = true;
             }
             catch (CryptographicException)
             {
                 // サーバーのデータ保護キーが変わった場合など。未ログイン扱いにする。
                 _token = null;
+                _loaded = true;
             }
-            _loaded = true;
+            catch (Exception ex) when (ex is InvalidOperationException or JSDisconnectedException)
+            {
+                // JS相互運用がまだ（プリレンダリング中・回線確立前）またはもう（回線切断後）使えない。
+                // この時点では未ログインとして扱い、読み込み済みにはしないで次回呼ばれたときに読み直す
+                return null;
+            }
         }
 
         if (_token is not null && _token.ExpiresAt <= time.GetUtcNow())
@@ -53,7 +61,14 @@ public sealed class TokenStore(ProtectedSessionStorage storage, TimeProvider tim
     {
         _token = null;
         _loaded = true;
-        await storage.DeleteAsync(StorageKey);
+        try
+        {
+            await storage.DeleteAsync(StorageKey);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or JSDisconnectedException)
+        {
+            // 回線切断後など。ブラウザ側のsessionStorageは閉じたタブとともに消える
+        }
         Changed?.Invoke();
     }
 

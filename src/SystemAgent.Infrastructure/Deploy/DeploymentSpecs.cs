@@ -38,6 +38,7 @@ public static partial class DeploymentSpecs
         if (environment.GroupBy(e => SplitEnv(e).Key).FirstOrDefault(g => g.Count() > 1) is { } duplicate)
             throw new ArgumentException($"環境変数 {duplicate.Key} が重複しています。");
         var volumes = Clean(spec.Volumes, VolumePattern(), "ボリューム（/ホストのパス:/コンテナのパス[:ro] または 名前:/パス）");
+        foreach (var volume in volumes) ValidateHostPath(volume);
         return spec with { Name = name, Image = image, Pod = pod, Ports = ports, Environment = environment, Volumes = volumes };
     }
 
@@ -61,6 +62,32 @@ public static partial class DeploymentSpecs
                 ?? throw new ArgumentException($"環境変数 {key} の値を入力してください。");
         }).ToList(),
     };
+
+    /// <summary>
+    /// ボリュームとしてマウントできないホストのディレクトリ（その配下も含む）。コンテナは root で起動するため、
+    /// OSの設定・デバイス・コンテナランタイムのソケット、SystemAgent の秘密情報（master.key 等）・バックアップを
+    /// コンテナから読み書きできないようにする。
+    /// </summary>
+    public static readonly IReadOnlyList<string> ProtectedHostPaths =
+    [
+        "/bin", "/boot", "/dev", "/etc", "/lib", "/lib64", "/proc", "/root", "/run", "/sbin", "/sys", "/usr",
+        "/var/run", "/var/lib/systemagent", "/var/lib/containers", "/var/lib/docker",
+    ];
+
+    private static void ValidateHostPath(string volume)
+    {
+        var host = volume[..volume.IndexOf(':')];
+        if (!host.StartsWith('/')) return; // 名前付きボリューム
+
+        var segments = host.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        if (segments.Any(s => s is "." or ".."))
+            throw new ArgumentException($"ボリュームのホスト側のパスに . や .. は使えません: {volume}");
+        var normalized = "/" + string.Join('/', segments);
+        if (normalized == "/")
+            throw new ArgumentException($"ホストのルートディレクトリ（/）はボリュームにできません: {volume}");
+        if (ProtectedHostPaths.FirstOrDefault(p => normalized == p || normalized.StartsWith(p + "/", StringComparison.Ordinal)) is { } denied)
+            throw new ArgumentException($"ホストの {denied} とその配下はボリュームにできません（OSとSystemAgentの秘密情報を保護するため）: {volume}");
+    }
 
     private static (string Key, string Value) SplitEnv(string entry)
     {

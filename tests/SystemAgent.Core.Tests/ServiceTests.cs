@@ -86,4 +86,40 @@ public class ServiceTests
         Assert.Equal("systemctl restart chronyd", runner.Calls[0]);
         Assert.Equal("journalctl -u chronyd -n 50 --no-pager -o short-iso", runner.Calls[1]);
     }
+
+    [Fact]
+    public async Task ListExisting_QueriesInParallel_KeepsOrderAndRemovesAliases()
+    {
+        var management = Management("chronyd", "mysqld", "mariadb", "nginx", "sshd", "docker", "podman", "keepalived");
+        var provider = new SlowProvider(TimeSpan.FromMilliseconds(300));
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+
+        var statuses = await management.ListExistingAsync(provider, CancellationToken.None);
+
+        // 8件 × 300ms を直列なら2.4秒。4件ずつ並行なら約0.6秒
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(1.8), $"{watch.Elapsed}");
+        Assert.InRange(provider.MaxConcurrency, 2, ServiceManagement.MaxParallelStatus);
+        // mysqld は mariadb の別名、docker は存在しない
+        Assert.Equal(["chronyd", "mariadb", "nginx", "sshd", "podman", "keepalived"], statuses.Select(s => s.Name));
+    }
+
+    private sealed class SlowProvider(TimeSpan delay) : IServiceManagerProvider
+    {
+        private int _running;
+        public int MaxConcurrency { get; private set; }
+
+        public async Task<ServiceStatus> GetStatusAsync(string unit, CancellationToken cancellationToken = default)
+        {
+            var running = Interlocked.Increment(ref _running);
+            lock (this) MaxConcurrency = Math.Max(MaxConcurrency, running);
+            await Task.Delay(delay, cancellationToken);
+            Interlocked.Decrement(ref _running);
+            var name = unit == "mysqld" ? "mariadb" : unit;
+            return new ServiceStatus(name, "", unit != "docker", "loaded", "active", "running", "enabled", 1, null);
+        }
+
+        public Task ExecuteAsync(string unit, ServiceAction action, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+        public Task<string> GetLogsAsync(string unit, int lines, CancellationToken cancellationToken = default) => Task.FromResult("");
+    }
 }

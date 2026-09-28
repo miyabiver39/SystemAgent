@@ -59,6 +59,66 @@ public sealed class RegistryBrowserTests : IDisposable
         Assert.Equal(2, _requests.Count);
     }
 
+    [Theory]
+    [InlineData("<http://169.254.169.254/latest/meta-data/>; rel=\"next\"")]
+    [InlineData("<https://attacker.example/v2/_catalog?n=1000>; rel=\"next\"")]
+    [InlineData("<//attacker.example/v2/_catalog>; rel=\"next\"")]
+    [InlineData("<../../../../etc/passwd>; rel=\"next\"")]
+    [InlineData("</v2/../admin>; rel=\"next\"")]
+    [InlineData("</v2/%2e%2e/admin>; rel=\"next\"")]
+    [InlineData("</other/path>; rel=\"next\"")]
+    [InlineData("<https://deploy:x@zot.local:5000/v2/_catalog>; rel=\"next\"")]
+    public async Task ListRepositories_RejectsLinkOutsideRegistry(string link)
+    {
+        var browser = await BrowserAsync();
+        _respond = _ => Json("""{"repositories":["app/web"]}""", link);
+
+        await Assert.ThrowsAsync<RegistryRequestException>(() => browser.ListRepositoriesAsync("zot.local:5000"));
+        Assert.Single(_requests);
+    }
+
+    [Fact]
+    public async Task ListRepositories_AcceptsAbsoluteLinkToSameRegistry()
+    {
+        var browser = await BrowserAsync();
+        _respond = request => request.RequestUri!.Query.Contains("last=")
+            ? Json("""{"repositories":["b"]}""")
+            : Json("""{"repositories":["a"]}""", """<https://zot.local:5000/v2/_catalog?n=1000&last=a>; rel="next" """);
+
+        Assert.Equal(["a", "b"], await browser.ListRepositoriesAsync("zot.local:5000"));
+        Assert.Equal("https://zot.local:5000/v2/_catalog?n=1000&last=a", _requests[^1].RequestUri!.ToString());
+    }
+
+    [Fact]
+    public async Task HttpClient_IsReusedAcrossRequests()
+    {
+        var handlers = 0;
+        var registries = new RegistryService(
+            new LocalSecretStore(Path.Combine(_dir, "secrets2"), NullLogger<LocalSecretStore>.Instance), NullLogger<RegistryService>.Instance);
+        var store = new SystemAgent.Infrastructure.CapabilityProviders.Templates.CommandTemplateStore(
+            Path.Combine(AppContext.BaseDirectory, "CommandTemplates"), null, NullLogger<SystemAgent.Infrastructure.CapabilityProviders.Templates.CommandTemplateStore>.Instance);
+        var runtime = new TemplateContainerRuntimeProvider(
+            new SystemAgent.Infrastructure.CapabilityProviders.Templates.TemplateCommandExecutor(store.Templates.Single(t => t.Id == "podman"), new FakeRunner()),
+            new RuntimeInfo("podman", "5", "podman"));
+        await registries.SaveAsync(runtime, "zot.local:5000", "deploy", "pass", true);
+        using var browser = new RegistryBrowser(registries, _ =>
+        {
+            handlers++;
+            return new StubHandler(request => request.RequestUri!.Query.Contains("last=")
+                ? Json("""{"repositories":["b"]}""")
+                : Json("""{"repositories":["a"]}""", """</v2/_catalog?n=1000&last=a>; rel="next" """));
+        });
+
+        await browser.ListRepositoriesAsync("zot.local:5000");
+        await browser.ListRepositoriesAsync("zot.local:5000");
+        Assert.Equal(1, handlers);
+
+        // 認証情報を変えたら作り直す
+        await registries.SaveAsync(runtime, "zot.local:5000", "deploy", "new-pass", true);
+        await browser.ListRepositoriesAsync("zot.local:5000");
+        Assert.Equal(2, handlers);
+    }
+
     [Fact]
     public async Task ListTags_ReturnsSortedTags_AndHandlesNull()
     {

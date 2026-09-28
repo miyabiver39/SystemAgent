@@ -156,7 +156,18 @@
 
     public async ValueTask DisposeAsync()
     {
-        _self?.Dispose();
-        await Task.CompletedTask;
+        if (_self is not null)
+        {
+            try
+            {
+                // 画面遷移のたびにDOMのイベントリスナーと保持中のファイルが残らないよう、ブラウザ側を解放する
+                await JS.InvokeVoidAsync("systemAgentDropZone.destroy", _zone, _input);
+            }
+            catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException or JSException)
+            {
+                // 回線切断後（タブを閉じた等）はブラウザ側も破棄済み
+            }
+            _self.Dispose();
+        }
     }
 }

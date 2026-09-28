@@ -158,12 +158,21 @@ public static partial class ContainerOutputParsers
         return (long)(double.Parse(match.Groups["n"].Value, CultureInfo.InvariantCulture) * multiplier);
     }
 
-    private static IEnumerable<JsonElement> JsonArray(string output) =>
-        string.IsNullOrWhiteSpace(output) ? [] : JsonDocument.Parse(output).RootElement.EnumerateArray().Select(e => e.Clone()).ToList();
+    // JsonDocument はプールしたバッファを使うため、要素を Clone して取り出したらすぐに Dispose する
+    private static IEnumerable<JsonElement> JsonArray(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output)) return [];
+        using var document = JsonDocument.Parse(output);
+        return document.RootElement.EnumerateArray().Select(e => e.Clone()).ToList();
+    }
 
     private static IEnumerable<JsonElement> JsonLines(string output) =>
         output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(line => JsonDocument.Parse(line).RootElement.Clone()).ToList();
+            .Select(line =>
+            {
+                using var document = JsonDocument.Parse(line);
+                return document.RootElement.Clone();
+            }).ToList();
 
     private static string? String(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;

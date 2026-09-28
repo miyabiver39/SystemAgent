@@ -81,4 +81,17 @@ public sealed class KeepalivedTests : IDisposable
         store.Update(s => s with { State = VrrpState.Master, History = [.. s.History, new HaEvent(DateTimeOffset.UtcNow, "x")] });
         Assert.Equal(VrrpState.Master, new HaStateStore(_dir).Load().State);
     }
+
+    [Fact]
+    public void StateStore_KeepsOnlyLatestHistory()
+    {
+        var store = new HaStateStore(_dir);
+        for (var i = 0; i < 120; i++)
+            store.Update(s => s with { History = [.. s.History, new HaEvent(DateTimeOffset.UtcNow, $"event {i}")] });
+
+        var history = new HaStateStore(_dir).Load().History;
+        Assert.Equal(50, history.Count);
+        Assert.Equal("event 70", history[0].Message);
+        Assert.Equal("event 119", history[^1].Message);
+    }
 }

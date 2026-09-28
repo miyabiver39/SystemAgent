@@ -42,7 +42,10 @@ public class BackupsController(BackupService backups, IAuditLogger audit) : Cont
         return NoContent();
     }
 
-    /// <summary>バックアップでDBを置き換える。誤操作防止のため、ファイル名をもう一度指定させる。</summary>
+    /// <summary>
+    /// バックアップでDBを置き換える。誤操作防止のため、ファイル名をもう一度指定させる。
+    /// 復元中は全ノードの更新系の操作を止める（BackupService / MaintenanceGuard）。別の復元が実行中なら409。
+    /// </summary>
     [HttpPost("{name}/restore")]
     public async Task<IActionResult> Restore(string name, RestoreBackupRequest request, CancellationToken cancellationToken)
     {

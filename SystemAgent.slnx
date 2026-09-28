@@ -7,6 +7,8 @@
     <Project Path="src/SystemAgent.Web/SystemAgent.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/SystemAgent.Cli.Tests/SystemAgent.Cli.Tests.csproj" />
     <Project Path="tests/SystemAgent.Core.Tests/SystemAgent.Core.Tests.csproj" />
+    <Project Path="tests/SystemAgent.Web.Tests/SystemAgent.Web.Tests.csproj" />
   </Folder>
 </Solution>

@@ -29,13 +29,15 @@ internal static class ClusterCommands
                 ]));
         }));
         var nodeIdArgument = new Argument<Guid>("id") { Description = "ノードID（node listで確認）" };
+        var forceOption = new Option<bool>("--force") { Description = "このノード自身・クラスタCAのノードでも削除する" };
         var nodeDelete = new Command("delete", "ノードの登録を削除する（発行済み証明書は失効しない）");
         nodeDelete.Arguments.Add(nodeIdArgument);
+        nodeDelete.Options.Add(forceOption);
         nodeDelete.SetAction((p, ct) => Run(p, async api =>
         {
             try
             {
-                await api.DeleteNodeAsync(p.GetValue(nodeIdArgument), ct);
+                await api.DeleteNodeAsync(p.GetValue(nodeIdArgument), p.GetValue(forceOption), ct);
             }
             catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {

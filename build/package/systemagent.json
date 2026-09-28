@@ -6,7 +6,10 @@
     "AdvertiseAddress": ""
   },
   "Container": {
-    "Runtime": "auto"
+    "Runtime": "auto",
+    "ImportTempPath": "/var/tmp",
+    "MaxImportSizeBytes": 21474836480,
+    "ImportMinFreeBytes": 1073741824
   },
   "Ntp": {
     "Implementation": "auto"

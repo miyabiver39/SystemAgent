@@ -20,7 +20,7 @@ namespace SystemAgent.Infrastructure.Ha;
 public sealed class HaService(
     HaSettingsStore settingsStore, HaStateStore stateStore, DbRoleManager db, CapabilityTemplateResolver resolver,
     ClusterIdentity identity, ClusterEndpointSettings endpoint, IServiceScopeFactory scopes, TimeProvider time,
-    IConfiguration configuration, ILogger<HaService> logger)
+    IConfiguration configuration, ILogger<HaService> logger) : IAsyncDisposable
 {
     public const string Capability = "keepalived";
 
@@ -103,6 +103,8 @@ public sealed class HaService(
     /// <summary>keepalived の notify から呼ばれる。</summary>
     public async Task NotifyAsync(VrrpState state, CancellationToken cancellationToken)
     {
+        // 状態が変わったら、BACKUP になったときに予約した再参加の判断は取り消す
+        CancelPendingRejoin();
         var previous = State.State;
         stateStore.Update(s => s with { State = state, Since = time.GetUtcNow() });
         Record($"VRRPの状態が {previous} から {state} になりました。");
@@ -116,7 +118,6 @@ public sealed class HaService(
 
         if (state == VrrpState.Master)
         {
-            Interlocked.Increment(ref _backupSequence); // 保留中の再参加判断を取り消す
             await db.PromoteAsync(localDb, cancellationToken);
             stateStore.Update(s => s with { RejoinPending = false });
             Record("ローカルDBをマスターに昇格しました（複製停止・書き込み許可）。");
@@ -131,27 +132,79 @@ public sealed class HaService(
 
         // keepalived は起動直後に必ず一度 BACKUP を経由し、他にMASTERがいなければ数秒後にMASTERになる。
         // すぐに再参加すると本来のマスターが自分のレプリカのレプリカになってしまうため、猶予後もBACKUPなら判断する
-        var sequence = Interlocked.Increment(ref _backupSequence);
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(RejoinDelay, time);
-                if (sequence == Volatile.Read(ref _backupSequence) && State.State == VrrpState.Backup)
-                    await EvaluateRejoinAsync(CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "レプリカとしての再参加の判断に失敗しました。");
-                Record($"レプリカとしての再参加に失敗しました: {ex.Message}");
-            }
-        });
+        ScheduleRejoinEvaluation();
     }
 
     /// <summary>BACKUPになってから再参加を判断するまでの猶予（HA:RejoinDelaySeconds、既定15秒）。</summary>
     private TimeSpan RejoinDelay => TimeSpan.FromSeconds(configuration.GetValue("HA:RejoinDelaySeconds", 15));
 
-    private long _backupSequence;
+    private readonly Lock _rejoinLock = new();
+    private CancellationTokenSource? _pendingRejoin;
+    private Task _pendingRejoinTask = Task.CompletedTask;
+
+    /// <summary>
+    /// 猶予の後に再参加を判断する処理を予約する。状態が変わったとき（CancelPendingRejoin）とアプリ終了時（DisposeAsync）に取り消す。
+    /// 取り消せるのは猶予の待機中だけで、判断・再参加を始めたら中途半端な状態で止めないよう最後まで行う。
+    /// </summary>
+    private void ScheduleRejoinEvaluation()
+    {
+        lock (_rejoinLock)
+        {
+            var cts = new CancellationTokenSource();
+            _pendingRejoin = cts;
+            _pendingRejoinTask = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(RejoinDelay, time, cts.Token);
+                    lock (_rejoinLock)
+                    {
+                        if (cts.IsCancellationRequested) return;
+                        _pendingRejoin = null; // 以降は取り消さない
+                    }
+                    if (State.State == VrrpState.Backup) await EvaluateRejoinAsync(CancellationToken.None);
+                }
+                catch (OperationCanceledException) when (cts.IsCancellationRequested)
+                {
+                    // 状態の変化・アプリの終了で取り消された
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "レプリカとしての再参加の判断に失敗しました。");
+                    Record($"レプリカとしての再参加に失敗しました: {ex.Message}");
+                }
+                finally
+                {
+                    cts.Dispose();
+                }
+            }, CancellationToken.None);
+        }
+    }
+
+    private void CancelPendingRejoin()
+    {
+        lock (_rejoinLock)
+        {
+            _pendingRejoin?.Cancel();
+            _pendingRejoin = null;
+        }
+    }
+
+    /// <summary>アプリ終了時: 待機中の再参加判断を取り消し、実行中の再参加は終わるまで待つ（DB操作を途中で打ち切らない）。</summary>
+    public async ValueTask DisposeAsync()
+    {
+        Task pending;
+        lock (_rejoinLock)
+        {
+            _pendingRejoin?.Cancel();
+            _pendingRejoin = null;
+            pending = _pendingRejoinTask;
+        }
+        if (await Task.WhenAny(pending, Task.Delay(ShutdownWait)) != pending)
+            logger.LogWarning("レプリカとしての再参加の処理が {Seconds} 秒以内に終わらないまま終了します。", ShutdownWait.TotalSeconds);
+    }
+
+    private static readonly TimeSpan ShutdownWait = TimeSpan.FromSeconds(30);
 
     private async Task EvaluateRejoinAsync(CancellationToken cancellationToken)
     {
@@ -223,6 +276,7 @@ public sealed class HaService(
         }
     }
 
+    /// <summary>履歴に残す。件数は HaStateStore が上限（最新50件）で切り詰める。</summary>
     private void Record(string message)
     {
         logger.LogInformation("HA: {Message}", message);

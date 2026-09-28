@@ -54,7 +54,8 @@ public class ImagesController(
     }
 
     /// <summary>
-    /// イメージアーカイブ(tar)を取り込む（podman/docker load）。次のどちらかで送る。
+    /// イメージアーカイブ(tar)を取り込む（podman/docker load）。大きさの上限を超えると413、一時ディレクトリの空きが足りないと507。
+    /// 次のどちらかで送る。
     /// <list type="bullet">
     /// <item>multipart/form-data の最初のファイル（CLI）</item>
     /// <item>application/octet-stream の本文そのもの。ファイル名は X-File-Name ヘッダ（URLエンコード）。WebUIからの転送用</item>
@@ -71,7 +72,7 @@ public class ImagesController(
         if (contentType.MediaType.Equals("application/octet-stream", StringComparison.OrdinalIgnoreCase))
         {
             var name = Uri.UnescapeDataString(Request.Headers[FileNameHeader].FirstOrDefault() ?? "image.tar");
-            return new ImportImageResponse(await importer.ImportAsync(Request.Body, name, User.ActorName(), cancellationToken));
+            return new ImportImageResponse(await importer.ImportAsync(Request.Body, name, User.ActorName(), cancellationToken, Request.ContentLength));
         }
 
         if (!contentType.MediaType.Equals("multipart/form-data", StringComparison.OrdinalIgnoreCase)
@@ -87,7 +88,8 @@ public class ImagesController(
                 || !disposition.IsFileDisposition()) continue;
 
             var fileName = disposition.FileName.Value ?? disposition.FileNameStar.Value ?? "image.tar";
-            return new ImportImageResponse(await importer.ImportAsync(section.Body, fileName, User.ActorName(), cancellationToken));
+            // multipart 全体の大きさを申告値の目安にする（ファイル部分はこれより少し小さい）
+            return new ImportImageResponse(await importer.ImportAsync(section.Body, fileName, User.ActorName(), cancellationToken, Request.ContentLength));
         }
         return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "ファイルが含まれていません。");
     }

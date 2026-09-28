@@ -33,7 +33,12 @@ public sealed class DatabaseConnection(ILocalSecretStore secrets, IConfiguration
                 ? (configured, DatabaseConnectionSource.Configuration)
                 : (null, DatabaseConnectionSource.None);
 
-    /// <summary>未設定時もDbContextを生成できるよう、到達しない接続先を返す（クエリ時に接続エラー → 503）。</summary>
+    public bool IsConfigured => Current.ConnectionString is not null;
+
+    /// <summary>
+    /// 未設定時もDbContextを生成できるよう、到達しない接続先を返す。実際には UnconfiguredDatabaseInterceptor が
+    /// 接続前に DatabaseNotConfiguredException で失敗させる（→ 503）。
+    /// </summary>
     public string ConnectionStringOrPlaceholder =>
         Current.ConnectionString ?? $"Server=127.0.0.1;Port=1;Database=systemagent;Connection Timeout={ConnectTimeoutSeconds}";
 

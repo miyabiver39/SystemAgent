@@ -2,7 +2,8 @@ namespace SystemAgent.Core.Errors;
 
 /// <summary>
 /// 利用者に原因をそのまま伝えるべき失敗の種類。APIでは ApiExceptionHandler がHTTPステータスに対応させる
-/// （InvalidInput=400、NotFound=404、Conflict=409、OperationFailed=422、NotSupported=501、Unreachable=502）。
+/// （InvalidInput=400、NotFound=404、Conflict=409、TooLarge=413、OperationFailed=422、NotSupported=501、Unreachable=502、
+/// InsufficientStorage=507）。
 /// </summary>
 public enum ErrorKind
 {
@@ -12,6 +13,8 @@ public enum ErrorKind
     OperationFailed,
     NotSupported,
     Unreachable,
+    TooLarge,
+    InsufficientStorage,
 }
 
 /// <summary>
@@ -56,6 +59,24 @@ public sealed class RegistryRequestException(string message, bool unreachable = 
 public sealed class DeploymentFailedException(string message) : SystemAgentException(message)
 {
     public override ErrorKind Kind => ErrorKind.OperationFailed;
+}
+
+/// <summary>要求の内容が規則に反する（最後のユーザーの削除、現在のパスワードの誤り等）。</summary>
+public sealed class InvalidRequestException(string message) : SystemAgentException(message)
+{
+    public override ErrorKind Kind => ErrorKind.InvalidInput;
+}
+
+/// <summary>送られたファイルが上限を超えている。</summary>
+public sealed class PayloadTooLargeException(string message) : SystemAgentException(message)
+{
+    public override ErrorKind Kind => ErrorKind.TooLarge;
+}
+
+/// <summary>保存先のディスクの空き容量が足りない。</summary>
+public sealed class InsufficientStorageException(string message) : SystemAgentException(message)
+{
+    public override ErrorKind Kind => ErrorKind.InsufficientStorage;
 }
 
 /// <summary>対象が見つからない（メッセージで何が無いかを伝える）。</summary>

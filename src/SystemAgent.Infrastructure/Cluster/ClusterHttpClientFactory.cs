@@ -37,7 +37,7 @@ public sealed class ClusterHttpClientFactory : IDisposable
                 LocalCertificateSelectionCallback = (_, _, _, _, _) => identity.NodeCertificate,
                 RemoteCertificateValidationCallback = (_, certificate, _, _) =>
                     certificate is not null
-                    && Pki.ValidateNodeCertificate(Pki.AsCertificate2(certificate), identity.CaCertificate) == expectedNodeId,
+                    && Pki.ValidateNodeCertificate(certificate, identity.CaCertificate, NodeCertificateUsage.Server) == expectedNodeId,
             },
         };
         // タイムアウトは呼び出し側（プロキシ）のCancellationTokenで管理する

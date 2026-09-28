@@ -45,14 +45,21 @@ public static class DependencyInjection
         // 接続文字列はDbContext生成のたびに取得する（WebUI/CLIから変更したら再起動なしで反映）
         services.AddSingleton<DatabaseConnection>();
         services.AddDbContext<AppDbContext>((sp, options) =>
-            options.UseMySql(sp.GetRequiredService<DatabaseConnection>().ConnectionStringOrPlaceholder, serverVersion));
+        {
+            var connection = sp.GetRequiredService<DatabaseConnection>();
+            options.UseMySql(connection.ConnectionStringOrPlaceholder, serverVersion);
+            // 未設定なら接続を試みずにすぐ失敗させる（到達しない接続先のタイムアウトを待たせない）
+            if (!connection.IsConfigured) options.AddInterceptors(UnconfiguredDatabaseInterceptor.Instance);
+        });
         services.AddScoped<DatabaseMigrator>();
+        services.AddSingleton<IMaintenanceLock, MaintenanceLock>();
 
         var secretStorePath = Path.Combine(contentRootPath, configuration["SecretStore:Path"] ?? DefaultSecretStorePath);
         services.AddSingleton<ILocalSecretStore>(sp =>
             new LocalSecretStore(secretStorePath, sp.GetRequiredService<ILogger<LocalSecretStore>>()));
 
         services.AddSingleton(TimeProvider.System);
+        services.AddMemoryCache();
 
         // Capability Provider（基本設計書 7章）
         services.AddSingleton<ICommandRunner, ProcessCommandRunner>();

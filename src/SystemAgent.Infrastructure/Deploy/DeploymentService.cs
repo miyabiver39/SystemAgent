@@ -105,12 +105,17 @@ public sealed class DeploymentService(
         {
             await DeployCoreAsync(runtime, spec, image, cancellationToken);
         }
-        catch (Exception ex) when (ex is CommandFailedException or DeploymentFailedException or CapabilityUnavailableException)
+        catch (Exception ex) when (ex is CommandFailedException or DeploymentFailedException or CapabilityUnavailableException
+                                       or OperationCanceledException)
         {
             // コマンドの標準エラーは進捗表示の後にエラーが出るため、最後の行を履歴に残す
-            var message = ex is CommandFailedException command
-                ? command.StandardError.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? ex.Message
-                : ex.Message;
+            var message = ex switch
+            {
+                CommandFailedException command =>
+                    command.StandardError.Split('\n', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? ex.Message,
+                OperationCanceledException => "要求が取り消された（接続切れ・タイムアウト等）ため中断しました。切り替え後であれば元のコンテナに戻しています。",
+                _ => ex.Message,
+            };
             Update(name, r => r with
             {
                 History = [new DeploymentEvent(DateTimeOffset.UtcNow, user, action, r.CurrentTag, tag, false, message), .. r.History],
@@ -169,14 +174,15 @@ public sealed class DeploymentService(
                     + (logs.Length > 0 ? $"\nログ（末尾）:\n{logs}" : ""));
             }
         }
-        catch (Exception ex) when (ex is CommandFailedException or DeploymentFailedException)
+        catch (Exception ex)
         {
+            // 取り消し（接続切れ・タイムアウト）を含むどの失敗でも元に戻す。戻さないと旧コンテナが退避・停止したまま残り、サービスが止まる
             await RestoreAsync(runtime, spec.Name, current, ex);
             throw;
         }
 
-        // 4. 成功したら退避したコンテナを削除（イメージはロールバック用に残す）
-        if (current is not null) await runtime.RemoveContainerAsync(current.Id, cancellationToken);
+        // 4. 成功したら退避したコンテナを削除（イメージはロールバック用に残す）。切り替えは済んでいるため取り消しは受け付けない
+        if (current is not null) await runtime.RemoveContainerAsync(current.Id, CancellationToken.None);
     }
 
     /// <summary>

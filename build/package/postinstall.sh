@@ -8,8 +8,9 @@ chmod 640 /etc/systemagent/systemagent.json
 
 cat <<'EOF'
 SystemAgent をインストールしました。
-  1. systemd の unit ファイルで起動してください（root で実行）:
-       ExecStart=/usr/lib/systemagent/SystemAgent.Web
+  1. systemd の unit ファイルで起動してください（root で実行）。例:
+       sudo cp /usr/share/doc/systemagent/systemagent.service.example /etc/systemd/system/systemagent.service
+       sudo systemctl daemon-reload && sudo systemctl enable --now systemagent
   2. 初期セットアップ（緊急認証の管理者作成）:   sudo systemagent setup
   3. 緊急ログイン:                               sudo systemagent login --emergency -u admin
   4. DB接続設定（テーブルも作成されます）:       sudo systemagent db set --server <DB/VIP>

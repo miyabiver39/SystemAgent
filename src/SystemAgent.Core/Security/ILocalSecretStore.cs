@@ -22,6 +22,13 @@ public interface ILocalSecretStore
 
     /// <summary>名前付きの秘密情報を保存する。valueがnullなら削除。</summary>
     void SetSecret(string name, string? value);
+
+    /// <summary>
+    /// 名前付きの秘密情報を、読み込み→変更→保存の間に他の更新が割り込まないように更新する（変更結果がnullなら削除）。
+    /// 同じ名前を扱う呼び出し元が複数あっても、ストア全体で排他するため更新が失われない。
+    /// </summary>
+    /// <returns>保存した値。</returns>
+    string? UpdateSecret(string name, Func<string?, string?> update);
 }
 
 public enum SetupResult

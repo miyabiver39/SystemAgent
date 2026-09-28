@@ -182,7 +182,7 @@ public sealed class ClusterService(
             SslOptions =
             {
                 RemoteCertificateValidationCallback = (_, certificate, _, _) =>
-                    certificate is not null && Pki.ValidateNodeCertificate(Pki.AsCertificate2(certificate), ca) is not null,
+                    certificate is not null && Pki.ValidateNodeCertificate(certificate, ca, NodeCertificateUsage.Server) is not null,
             },
         }) { BaseAddress = new Uri(token.CaUrl), Timeout = TimeSpan.FromSeconds(60) };
 
@@ -198,13 +198,19 @@ public sealed class ClusterService(
         var enrolled = (await response.Content.ReadFromJsonAsync<EnrollResponse>(cancellationToken))!;
 
         using var issued = X509Certificate2.CreateFromPem(enrolled.NodeCertificatePem);
-        if (Pki.ValidateNodeCertificate(issued, ca) != enrolled.NodeId)
+        // 受け取った証明書はサーバー・クライアントの両方に使う
+        if (Pki.ValidateNodeCertificate(issued, ca, NodeCertificateUsage.Server) != enrolled.NodeId
+            || Pki.ValidateNodeCertificate(issued, ca, NodeCertificateUsage.Client) != enrolled.NodeId)
             throw new ClusterStateException("CAノードから受け取った証明書が不正です。");
 
         identity.Save(enrolled.ClusterName, enrolled.NodeId, enrolled.NodeCertificatePem, key, ca.ExportCertificatePem(), null);
         logger.LogInformation("クラスタ '{Cluster}' に参加しました（ノードID {NodeId}）。", enrolled.ClusterName, enrolled.NodeId);
         return GetStatus();
     }
+
+    /// <summary>クラスタCAのノードID（中央DBに記録したもの）。未初期化ならnull。</summary>
+    public async Task<Guid?> GetCaNodeIdAsync(CancellationToken cancellationToken) =>
+        Guid.TryParse(await SettingAsync(CaNodeIdSetting, cancellationToken), out var id) ? id : null;
 
     public async Task<string?> GetCaCertificatePemAsync(CancellationToken cancellationToken) =>
         identity.Current?.CaCertificate.ExportCertificatePem() ?? await SettingAsync(CaCertificateSetting, cancellationToken);

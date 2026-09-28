@@ -19,14 +19,9 @@ public class ServicesController(ServiceManagement management, IAuditLogger audit
     public async Task<IReadOnlyList<ManagedServiceResponse>> List(CancellationToken cancellationToken)
     {
         var provider = await management.ResolveAsync(cancellationToken);
-        var result = new List<ManagedServiceResponse>();
-        foreach (var unit in management.Managed)
-        {
-            var status = await provider.GetStatusAsync(unit, cancellationToken);
-            // 別名（例: mysqld → mariadb）で同じサービスが重複しないようにする
-            if (status.Exists && result.All(r => r.Status.Name != status.Name)) result.Add(new ManagedServiceResponse(status, true));
-        }
-        return result;
+        return (await management.ListExistingAsync(provider, cancellationToken))
+            .Select(status => new ManagedServiceResponse(status, true))
+            .ToList();
     }
 
     [HttpGet("{unit}")]

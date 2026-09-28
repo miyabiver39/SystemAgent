@@ -44,4 +44,14 @@ public sealed class SecretJsonStoreTests : IDisposable
         await Task.WhenAll(Enumerable.Range(0, 50).Select(i => Task.Run(() => store.Update(current => [.. current ?? [], $"item{i}"]))));
         Assert.Equal(50, store.Load()!.Count);
     }
+
+    [Fact]
+    public async Task Update_IsSerializedAcrossInstancesWithSameName()
+    {
+        // サービスごとに別のインスタンスを作っても、同じ名前の更新は失われない
+        var secrets = Secrets();
+        await Task.WhenAll(Enumerable.Range(0, 50).Select(i => Task.Run(() =>
+            new SecretJsonStore<List<string>>(secrets, "list").Update(current => [.. current ?? [], $"item{i}"]))));
+        Assert.Equal(50, new SecretJsonStore<List<string>>(secrets, "list").Load()!.Count);
+    }
 }

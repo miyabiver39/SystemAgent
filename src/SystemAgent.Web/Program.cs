@@ -73,6 +73,9 @@ builder.Services.AddAuthorization(options => options.DefaultPolicy = new Authori
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+// ログイン・初期セットアップの総当たり対策（接続元ごとのレート制限と、アカウントごとのロックアウト）
+builder.Services.AddAuthRateLimiting(builder.Configuration);
+builder.Services.AddSingleton<LoginThrottle>();
 
 // WebUI: 画面文字列はリソースファイルに外出しする（ADR-011）
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
@@ -111,6 +114,9 @@ else
     app.MapOpenApi();
 }
 
+// ノード間通信ポートでは、他ノードからの転送（ノード証明書）と参加の手続きだけを受け付ける
+app.UseClusterPortGuard();
+
 // APIのステータスコード(401/404等)はそのまま返し、画面遷移のみNotFoundページへ再実行する
 app.UseWhen(
     context => !context.Request.Path.StartsWithSegments("/api"),
@@ -118,8 +124,11 @@ app.UseWhen(
 
 // HTTPSリダイレクトは行わない。TLS終端はNginx(任意)に委ね、HTTP平文も許可する（ADR-004）。
 
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+// 中央DBの復元中は、全ノードで更新系のAPIを受け付けない
+app.UseMaintenanceGuard();
 app.UseAntiforgery();
 
 app.MapControllers();
@@ -129,3 +138,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// 結合テスト（tests/SystemAgent.Web.Tests の WebApplicationFactory）から参照するため
+public partial class Program;

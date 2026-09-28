@@ -7,7 +7,13 @@ using SystemAgent.Infrastructure.Persistence.Entities;
 
 namespace SystemAgent.Infrastructure.Auditing;
 
-public sealed class DbAuditLogger(AppDbContext db, TimeProvider time, ClusterEndpointSettings endpoint, ILogger<DbAuditLogger> logger)
+/// <summary>
+/// 監査ログを中央DBに記録する。記録には要求ごとの DbContext とは別の DbContext を使う。
+/// 同じ DbContext だと、業務処理の保存に失敗した変更が監査ログの保存で一緒に書き込まれたり、
+/// 監査ログの保存の失敗が業務処理の変更追跡に残ったりして、互いに干渉するため。
+/// </summary>
+public sealed class DbAuditLogger(
+    DbContextOptions<AppDbContext> options, TimeProvider time, ClusterEndpointSettings endpoint, ILogger<DbAuditLogger> logger)
     : IAuditLogger
 {
     // DB障害中に操作のたびに接続タイムアウトを待たせないよう、失敗後しばらくはDB記録を試みない
@@ -26,23 +32,22 @@ public sealed class DbAuditLogger(AppDbContext db, TimeProvider time, ClusterEnd
             return;
         }
 
-        var entry = db.AuditLogs.Add(new AuditLogEntity
-        {
-            ActorUserName = actor,
-            Action = action,
-            Detail = detail,
-            OccurredAt = now,
-            NodeName = endpoint.NodeName,
-        });
-
         try
         {
+            await using var db = new AppDbContext(options);
+            db.AuditLogs.Add(new AuditLogEntity
+            {
+                ActorUserName = actor,
+                Action = action,
+                Detail = detail,
+                OccurredAt = now,
+                NodeName = endpoint.NodeName,
+            });
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // DB停止中（緊急認証での操作等）でも本来の操作は継続させる。記録できなかった事実はアプリログに残す。
-            entry.State = EntityState.Detached;
             Interlocked.Exchange(ref _skipDbUntilTicks, (now + RetryBackoff).UtcTicks);
             LogNotRecorded(ex, actor, action, detail);
         }

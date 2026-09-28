@@ -1,5 +1,5 @@
 # RPM/DEBパッケージ定義（ADR-006）。build/package/package.ps1 から実行する（リポジトリルートがカレントディレクトリ）。
-# systemdのunitファイルは含めない（利用者側で用意する。ADR-017）。
+# systemdのunitファイルは有効にしない（利用者側で用意する。ADR-017）。例を /usr/share/doc/systemagent/ に同梱する。
 name: systemagent
 arch: amd64
 platform: linux
@@ -56,6 +56,12 @@ contents:
     file_info:
       mode: 0755
 
+  # systemd の unit の例（ADR-017。コピーして使う）
+  - src: ./build/package/systemagent.service.example
+    dst: /usr/share/doc/systemagent/systemagent.service.example
+    file_info:
+      mode: 0644
+
   # 秘密情報（ホスト固有鍵・暗号化済み秘密情報）。初回起動時に生成される
   - dst: /var/lib/systemagent
     type: dir
@@ -64,3 +70,6 @@ contents:
 
 scripts:
   postinstall: ./build/package/postinstall.sh
+  # 削除時に稼働中のサービスを止め、残るデータを案内する（アップグレードでは何もしない）
+  preremove: ./build/package/preremove.sh
+  postremove: ./build/package/postremove.sh

@@ -50,7 +50,7 @@ public sealed class TemplateCommandExecutor(CommandTemplate template, ICommandRu
     private static CommandResult EnsureSuccess(string executable, IReadOnlyList<string> args, CommandResult result) =>
         result.ExitCode == 0
             ? result
-            : throw new CommandFailedException($"{executable} {string.Join(' ', args)}", result.ExitCode, result.StandardError);
+            : throw new CommandFailedException(CommandArguments.Describe(executable, args), result.ExitCode, result.StandardError);
 
     public string? Parser(string command) => template.Commands[command].Parser;
 

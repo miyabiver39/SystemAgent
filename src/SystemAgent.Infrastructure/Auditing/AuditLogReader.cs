@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Infrastructure.Persistence;
 using SystemAgent.Infrastructure.Persistence.Entities;
@@ -8,10 +9,15 @@ using SystemAgent.Infrastructure.Persistence.Entities;
 namespace SystemAgent.Infrastructure.Auditing;
 
 /// <summary>監査ログの検索・CSV出力（ADR-025）。中央DBに全ノードの記録が集まるため、どのノードからでも全体を見られる。</summary>
-public sealed class AuditLogReader(AppDbContext db)
+public sealed class AuditLogReader(AppDbContext db, IMemoryCache cache)
 {
     public const int MaxPageSize = 500;
     public const int MaxExportRows = 100_000;
+
+    /// <summary>絞り込みの選択肢を使い回す時間。記録が増えても画面を開くたびに集計しない（新しい操作・実行者はこの時間内に反映）。</summary>
+    public static readonly TimeSpan FacetsCacheDuration = TimeSpan.FromMinutes(1);
+
+    private const string FacetsCacheKey = "audit.facets";
 
     public async Task<AuditLogPage> SearchAsync(AuditLogQuery query, CancellationToken cancellationToken = default)
     {
@@ -25,11 +31,18 @@ public sealed class AuditLogReader(AppDbContext db)
         return new AuditLogPage(items, total, page, pageSize);
     }
 
-    /// <summary>絞り込み用の選択肢（記録されている操作・実行者・ノード）。</summary>
-    public async Task<AuditLogFacets> FacetsAsync(CancellationToken cancellationToken = default) => new(
-        await db.AuditLogs.Select(a => a.Action).Distinct().OrderBy(a => a).ToListAsync(cancellationToken),
-        await db.AuditLogs.Select(a => a.ActorUserName).Distinct().OrderBy(a => a).ToListAsync(cancellationToken),
-        await db.AuditLogs.Where(a => a.NodeName != null).Select(a => a.NodeName!).Distinct().OrderBy(a => a).ToListAsync(cancellationToken));
+    /// <summary>絞り込み用の選択肢（記録されている操作・実行者・ノード）。各列のインデックスで集計し、結果は短時間キャッシュする。</summary>
+    public async Task<AuditLogFacets> FacetsAsync(CancellationToken cancellationToken = default)
+    {
+        if (cache.TryGetValue(FacetsCacheKey, out AuditLogFacets? cached) && cached is not null) return cached;
+
+        var facets = new AuditLogFacets(
+            await db.AuditLogs.Select(a => a.Action).Distinct().OrderBy(a => a).ToListAsync(cancellationToken),
+            await db.AuditLogs.Select(a => a.ActorUserName).Distinct().OrderBy(a => a).ToListAsync(cancellationToken),
+            await db.AuditLogs.Where(a => a.NodeName != null).Select(a => a.NodeName!).Distinct().OrderBy(a => a).ToListAsync(cancellationToken));
+        cache.Set(FacetsCacheKey, facets, FacetsCacheDuration);
+        return facets;
+    }
 
     /// <summary>
     /// 条件に合う記録を新しい順にCSV（UTF-8 BOM付き。Excelで文字化けしないため）で書き出す。最大 MaxExportRows 件。

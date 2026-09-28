@@ -69,12 +69,25 @@ public static class Pki
 
     /// <summary>
     /// 証明書がクラスタCAで署名されたノード証明書か検証し、ノードIDを返す。OSの信頼ストアは使わない。
+    /// 用途（EKU）も確認する: 接続先のサーバー証明書なら ServerAuth、接続元のクライアント証明書なら ClientAuth を持つこと。
     /// </summary>
-    public static Guid? ValidateNodeCertificate(X509Certificate2 certificate, X509Certificate2 ca)
+    /// <param name="certificate">TLSのコールバックで渡される X509Certificate も受け付ける（内部で変換したものは破棄する）。</param>
+    public static Guid? ValidateNodeCertificate(X509Certificate certificate, X509Certificate2 ca, NodeCertificateUsage usage)
     {
+        if (certificate is X509Certificate2 certificate2) return Validate(certificate2, ca, usage);
+        using var converted = X509CertificateLoader.LoadCertificate(certificate.GetRawCertData());
+        return Validate(converted, ca, usage);
+    }
+
+    private static Guid? Validate(X509Certificate2 certificate, X509Certificate2 ca, NodeCertificateUsage usage)
+    {
+        var requiredUsage = usage == NodeCertificateUsage.Server ? ServerAuth : ClientAuth;
+        if (!HasEnhancedKeyUsage(certificate, requiredUsage)) return null;
+
         using var chain = new X509Chain();
         chain.ChainPolicy.TrustMode = X509ChainTrustMode.CustomRootTrust;
         chain.ChainPolicy.CustomTrustStore.Add(ca);
+        chain.ChainPolicy.ApplicationPolicy.Add(requiredUsage);
         // 失効機能は設けない（ADR-012）。エアギャップのためオンライン確認もしない
         chain.ChainPolicy.RevocationMode = X509RevocationMode.NoCheck;
         if (!chain.Build(certificate)) return null;
@@ -82,6 +95,11 @@ public static class Pki
 
         return NodeIdOf(certificate);
     }
+
+    /// <summary>EKU拡張に指定の用途が明示されているか（EKU拡張の無い証明書は、用途を限定していないが受け入れない）。</summary>
+    private static bool HasEnhancedKeyUsage(X509Certificate2 certificate, Oid usage) =>
+        certificate.Extensions.OfType<X509EnhancedKeyUsageExtension>()
+            .Any(e => e.EnhancedKeyUsages.Cast<Oid>().Any(o => o.Value == usage.Value));
 
     public static Guid? NodeIdOf(X509Certificate2 certificate)
     {
@@ -111,13 +129,20 @@ public static class Pki
     public static string Fingerprint(X509Certificate2 certificate) =>
         Convert.ToHexString(SHA256.HashData(certificate.RawData));
 
-    public static X509Certificate2 AsCertificate2(X509Certificate certificate) =>
-        certificate as X509Certificate2 ?? X509CertificateLoader.LoadCertificate(certificate.GetRawCertData());
-
     public static X509Certificate2 WithPrivateKey(string certificatePem, string privateKeyPem)
     {
         using var cert = X509Certificate2.CreateFromPem(certificatePem, privateKeyPem);
         // SslStream（特にLinux）で使うため、エフェメラルキーではなくPKCS#12経由で読み直す
         return X509CertificateLoader.LoadPkcs12(cert.Export(X509ContentType.Pkcs12), null);
     }
+}
+
+/// <summary>ノード証明書をどちらの立場で検証するか。</summary>
+public enum NodeCertificateUsage
+{
+    /// <summary>接続先ノードのサーバー証明書（TLSサーバー認証）。</summary>
+    Server,
+
+    /// <summary>接続元ノードのクライアント証明書（TLSクライアント認証）。</summary>
+    Client,
 }

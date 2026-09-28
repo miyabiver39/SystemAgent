@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using SystemAgent.Core.Auditing;
 using SystemAgent.Core.Contracts;
 using SystemAgent.Core.Security;
+using SystemAgent.Web.Auth;
 
 namespace SystemAgent.Web.Controllers;
 
@@ -16,13 +18,18 @@ public class SetupController(ILocalSecretStore secrets, IAuditLogger audit) : Co
     public SetupStatusResponse Status() => new(secrets.IsSetupRequired);
 
     [HttpPost]
+    [EnableRateLimiting(RateLimitPolicies.Auth)]
     public async Task<IActionResult> Complete(SetupRequest request, CancellationToken cancellationToken)
     {
+        if (PasswordPolicy.Validate(request.UserName, request.Password) is { } error)
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: error);
         switch (secrets.CompleteSetup(request.SetupToken, request.UserName, request.Password))
         {
             case SetupResult.AlreadyCompleted:
                 return Problem(statusCode: StatusCodes.Status409Conflict, detail: "初期セットアップは完了済みです。");
             case SetupResult.InvalidToken:
+                await audit.LogAsync(AuthController.AuditActor(request.UserName), "setup.failed",
+                    $"セットアップトークン不一致 from {HttpContext.Connection.RemoteIpAddress}", cancellationToken);
                 return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "セットアップトークンが正しくありません。");
         }
 

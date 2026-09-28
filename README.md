@@ -15,7 +15,9 @@ src/
   SystemAgent.Client          WebAPIクライアント（WebUIとCLIが共用。操作の同一性をここで担保）
   SystemAgent.Cli             CLI（コマンド名 systemagent）
 tests/
-  SystemAgent.Core.Tests
+  SystemAgent.Core.Tests      業務処理・テンプレート・パーサー等の単体テスト
+  SystemAgent.Web.Tests       API の結合テスト（WebApplicationFactory。DBは未設定で起動）と画面側クラスの単体テスト
+  SystemAgent.Cli.Tests       CLI を実際の引数で実行するテスト（疑似サーバーに対して）
 docs/
   design/  基本設計書
   adr/     Architecture Decision Record

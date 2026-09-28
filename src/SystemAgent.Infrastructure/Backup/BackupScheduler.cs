@@ -20,10 +20,15 @@ public sealed class BackupScheduler(BackupService backups, TimeProvider time, IL
         }
         logger.LogInformation("定時バックアップを有効にしました（毎日 {At}）。", dailyAt);
 
+        DateOnly? lastRun = null;
         while (!stoppingToken.IsCancellationRequested)
         {
-            var delay = NextDelay(time.GetLocalNow(), at);
-            await Task.Delay(delay, time, stoppingToken);
+            // タイマーは予定より数ミリ秒早く戻ることがあるため少し余裕を持たせ、さらに同じ日の2回目は実行しない
+            var delay = NextDelay(time.GetLocalNow(), at, lastRun);
+            await Task.Delay(delay + Margin, time, stoppingToken);
+            var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
+            if (today == lastRun) continue;
+            lastRun = today;
             try
             {
                 await backups.CreateAsync(stoppingToken);
@@ -35,10 +40,15 @@ public sealed class BackupScheduler(BackupService backups, TimeProvider time, IL
         }
     }
 
-    public static TimeSpan NextDelay(DateTimeOffset now, TimeOnly at)
+    /// <summary>実行予定時刻を少し過ぎてから起きるための余裕。</summary>
+    public static readonly TimeSpan Margin = TimeSpan.FromSeconds(1);
+
+    /// <param name="lastRun">最後に実行した日（ローカル）。その日の予定時刻は過ぎたものとして翌日にする。</param>
+    public static TimeSpan NextDelay(DateTimeOffset now, TimeOnly at, DateOnly? lastRun = null)
     {
-        var next = new DateTimeOffset(DateOnly.FromDateTime(now.DateTime).ToDateTime(at), now.Offset);
-        if (next <= now) next = next.AddDays(1);
+        var today = DateOnly.FromDateTime(now.DateTime);
+        var next = new DateTimeOffset(today.ToDateTime(at), now.Offset);
+        if (next <= now || today == lastRun) next = next.AddDays(1);
         return next - now;
     }
 }

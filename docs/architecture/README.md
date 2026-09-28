@@ -59,11 +59,11 @@ flowchart LR
 
 ## 3. 配置（1ノードの中身）
 
-各ノードでは **SystemAgent の1プロセス**が動き、WebUI・API・ノード間通信をまとめて受け持つ（ADR-007）。systemd のユニットは運用側で用意し、root で起動する（ADR-017）。
+各ノードでは **SystemAgent の1プロセス**が動き、WebUI・API・ノード間通信をまとめて受け持つ（ADR-007）。systemd のユニットは運用側で用意し、root で起動する（ADR-017。例: `/usr/share/doc/systemagent/systemagent.service.example`）。
 
 | 項目 | 内容 |
 |---|---|
-| 待ち受け | `:5000` WebUI と API（HTTP。TLS終端は必要なら Nginx、ADR-004）／ `:5443` ノード間通信（mTLS、ADR-018） |
+| 待ち受け | `:5000` WebUI と API（HTTP。TLS終端は必要なら Nginx、ADR-004）／ `:5443` ノード間通信（mTLS、ADR-018。ノード証明書の要求と参加の手続き以外は 404） |
 | プログラム | `/usr/lib/systemagent/`（Web）、`/usr/bin/systemagent`（CLI） |
 | 設定 | `/etc/systemagent/systemagent.json`（ポート・ノード名・バックアップ等。秘密情報は置かない） |
 | ローカル秘密情報 | `/var/lib/systemagent/secrets/`（`master.key` と `secrets.enc`、root のみ） |
@@ -160,6 +160,8 @@ src/
     Commands/                    コマンド群ごとの定義（ContainerCommands.cs など）
     CliContext.cs                接続先の決定・ノード転送・エラー表示
 tests/SystemAgent.Core.Tests/  単体テスト（xUnit）
+tests/SystemAgent.Web.Tests/   APIの結合テスト（WebApplicationFactory）・画面側クラスの単体テスト
+tests/SystemAgent.Cli.Tests/   CLIの実行テスト（疑似サーバーに対して）
 build/package/                 RPM/DEB（nfpm）
 scripts/dev/                   WSL検証環境の操作
 docs/                          設計書・ADR・QA・この資料
@@ -201,6 +203,8 @@ flowchart LR
 - ログインすると **JWT（有効8時間、更新なし）** を発行する。署名鍵はローカル秘密情報にある
 - 役割（ロール）による権限の区別はない。ログインできる人は全機能を使える（ADR-015）
 - 初期セットアップは、サーバー上にだけ置かれるワンタイムの `setup-token` を知っている人しかできない
+- ログイン・初期セットアップは接続元ごとに回数を制限し（既定 10回/分）、同じアカウントで5回続けて失敗すると15分ロックする。失敗も監査ログに残す
+- パスワード変更には変更するアカウントの現在のパスワードが必要。最後の通常ユーザーは削除できない
 
 ### 6.2 データをどこに置くか
 
@@ -223,10 +227,12 @@ flowchart LR
 | InvalidInput | 400 | 入力の形式が不正（`ArgumentException` も 400） |
 | NotFound | 404 | 定義されていないアプリ、レジストリにないタグ |
 | Conflict | 409 | マスター中に再参加しようとした、デプロイ中 |
+| TooLarge | 413 | 取り込むイメージアーカイブが上限を超えた |
 | OperationFailed | 422 | OSコマンドの失敗、デプロイ失敗（元に戻した） |
 | NotSupported | 501 | この環境にツールが無い |
 | Unreachable | 502 | 他ノード・レジストリに接続できない |
-| （DB接続障害） | 503 | 画面・CLIは緊急ログインを案内する |
+| （DB接続障害・DB未設定・DB復元中の更新） | 503 | 画面・CLIは緊急ログインを案内する |
+| InsufficientStorage | 507 | 一時ディレクトリの空き容量が足りない |
 
 画面側は `PageOperation`（実行中・エラー・完了メッセージ）と `OperationNotices`（表示）、CLI側は `CliContext.Run`（「エラー: …」と終了コード1）で共通に扱う。
 
@@ -306,7 +312,8 @@ flowchart LR
 | ノード1台停止 | そのノードは操作できない（転送は 502） | 他のノードは影響なし |
 | CAを持つノードの停止 | 新しいノードを参加させられない | 既存ノード間の通信・転送は影響なし |
 | DBマスターのノード停止 | Keepalived が VIP を移し、移った先の DB が昇格する | 復旧したノードは承認後にレプリカとして再参加 |
-| デプロイした新バージョンが起動しない | 自動で元のコンテナに戻る | 履歴と画面に失敗理由が出る |
+| デプロイした新バージョンが起動しない | 自動で元のコンテナに戻る（接続切れ・タイムアウトで中断した場合も） | 履歴と画面に失敗理由が出る |
+| DBをバックアップから復元中 | 全ノードで更新系のAPIが503になり、定時バックアップ・別の復元も止まる（中央DBの名前付きロック） | 参照・ログイン・keepalived からの通知 |
 
 ---
 
@@ -314,7 +321,7 @@ flowchart LR
 
 | やりたいこと | 方法 |
 |---|---|
-| ビルド・テスト | `dotnet build` / `dotnet test`（VS Code ではタスク `build` / `test`） |
+| ビルド・テスト | `dotnet build` / `dotnet test`（VS Code ではタスク `build` / `test`）。Core / Web / Cli の3つのテストプロジェクト |
 | 画面の確認（Windows上） | VS Code の「Web（Windows・画面/DB確認用）」。Linux専用機能は 501 になる |
 | 全機能の確認 | WSL の検証用3ノード（AlmaLinux 9 / Ubuntu 24.04 / Debian）。タスク「WSL: 3ノードを起動（Debugビルド）」→ http://localhost:5000 |
 | WSLのノードをデバッグ | 「WSL: 実行中の node-a にアタッチ」（README「VS Codeでのビルド・デバッグ」） |
