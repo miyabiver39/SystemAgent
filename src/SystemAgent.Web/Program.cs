@@ -114,6 +114,9 @@ else
     app.MapOpenApi();
 }
 
+// ノード間通信ポートでは、他ノードからの転送（ノード証明書）と参加の手続きだけを受け付ける
+app.UseClusterPortGuard();
+
 // APIのステータスコード(401/404等)はそのまま返し、画面遷移のみNotFoundページへ再実行する
 app.UseWhen(
     context => !context.Request.Path.StartsWithSegments("/api"),
