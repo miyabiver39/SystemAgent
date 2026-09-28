@@ -138,3 +138,6 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
+
+// 結合テスト（tests/SystemAgent.Web.Tests の WebApplicationFactory）から参照するため
+public partial class Program;

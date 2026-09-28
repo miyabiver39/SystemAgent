@@ -9,12 +9,13 @@ namespace SystemAgent.Cli;
 /// 全コマンドに共通する部分: 共通オプション（--url / --json / --node）、接続先の決定、ノード転送、エラーの表示。
 /// 各コマンドは Run / RunOnNode にAPI呼び出しを渡すだけにし、例外は終了コード1とメッセージに変換する。
 /// </summary>
-internal sealed class CliContext
+/// <param name="tokens">ログイン状態の保存先（テスト用。省略時は既定の場所）。</param>
+internal sealed class CliContext(FileTokenStore? tokens = null)
 {
     public const string DefaultUrl = "http://localhost:5000";
     public const string DefaultSecretsDir = "/var/lib/systemagent/secrets";
 
-    public FileTokenStore Tokens { get; } = new();
+    public FileTokenStore Tokens { get; } = tokens ?? new();
 
     public Option<string?> UrlOption { get; } = new("--url")
     {
