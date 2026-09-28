@@ -9,7 +9,7 @@ namespace SystemAgent.Web.Api;
 /// <summary>
 /// /api配下の未処理例外をProblemDetailsで返す。画面(Blazor)側の例外はfalseを返して既定のエラーページに任せる。
 /// <list type="bullet">
-/// <item>業務上の失敗（SystemAgentException）: 種類（ErrorKind）で決める。400 / 404 / 409 / 422 / 501 / 502</item>
+/// <item>業務上の失敗（SystemAgentException）: 種類（ErrorKind）で決める。400 / 404 / 409 / 413 / 422 / 501 / 502 / 507</item>
 /// <item>DB接続障害: 503（クライアントは緊急ログインへ誘導する）</item>
 /// <item>引数の不正: 400 / 権限なし: 403 / コマンドのタイムアウト: 504 / それ以外: 500（詳細はログのみ）</item>
 /// </list>
@@ -63,9 +63,11 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetails, I
         ErrorKind.InvalidInput => StatusCodes.Status400BadRequest,
         ErrorKind.NotFound => StatusCodes.Status404NotFound,
         ErrorKind.Conflict => StatusCodes.Status409Conflict,
+        ErrorKind.TooLarge => StatusCodes.Status413PayloadTooLarge,
         ErrorKind.OperationFailed => StatusCodes.Status422UnprocessableEntity,
         ErrorKind.NotSupported => StatusCodes.Status501NotImplemented,
         ErrorKind.Unreachable => StatusCodes.Status502BadGateway,
+        ErrorKind.InsufficientStorage => StatusCodes.Status507InsufficientStorage,
         _ => StatusCodes.Status500InternalServerError,
     };
 }

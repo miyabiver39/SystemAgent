@@ -25,7 +25,8 @@ public class UploadsController(UploadTickets tickets, ImageImporter importer, No
         var fileName = Request.Headers[ImagesController.FileNameHeader].FirstOrDefault() ?? "image.tar";
 
         if (entry.NodeId is not { } nodeId)
-            return Ok(new ImportImageResponse(await importer.ImportAsync(Request.Body, Uri.UnescapeDataString(fileName), entry.Actor, cancellationToken)));
+            return Ok(new ImportImageResponse(await importer.ImportAsync(
+                Request.Body, Uri.UnescapeDataString(fileName), entry.Actor, cancellationToken, Request.ContentLength)));
 
         var content = new StreamContent(Request.Body);
         content.Headers.TryAddWithoutValidation("Content-Type", "application/octet-stream");
