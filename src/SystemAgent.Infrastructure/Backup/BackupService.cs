@@ -18,7 +18,7 @@ namespace SystemAgent.Infrastructure.Backup;
 /// ダンプコマンドの出力を速度制限しながらgzip圧縮して保存する。ファイルはこのノードのディレクトリに置く（NFS等のマウント先も可）。
 /// </summary>
 public sealed partial class BackupService(
-    CapabilityTemplateResolver resolver, ICommandRunner runner, DatabaseConnection connection,
+    CapabilityTemplateResolver resolver, ICommandRunner runner, DatabaseConnection connection, IMaintenanceLock maintenance,
     IConfiguration configuration, TimeProvider time, ILogger<BackupService> logger)
 {
     public const string Capability = "db-backup";
@@ -61,6 +61,9 @@ public sealed partial class BackupService(
 
     public async Task<BackupFileInfo> CreateAsync(CancellationToken cancellationToken)
     {
+        // 復元の途中のDBをバックアップしても使えない
+        if (await maintenance.IsActiveAsync(cancellationToken))
+            throw new ClusterStateException("データベースの復元中のため、バックアップを作成できません。完了してからやり直してください。");
         var (executor, _) = await ResolveAsync(cancellationToken);
         var (connectionString, _) = connection.Current;
         if (connectionString is null) throw new CapabilityUnavailableException("DB接続が設定されていません。");
@@ -109,7 +112,10 @@ public sealed partial class BackupService(
         return true;
     }
 
-    /// <summary>バックアップでDBを置き換える。</summary>
+    /// <summary>
+    /// バックアップでDBを置き換える。復元している間は中央DBをメンテナンス中にし（MaintenanceLock）、
+    /// 全ノードの更新系の操作・定時バックアップ・別の復元を受け付けないようにする。
+    /// </summary>
     public async Task RestoreAsync(string name, CancellationToken cancellationToken)
     {
         var path = PathOf(name);
@@ -117,6 +123,8 @@ public sealed partial class BackupService(
         var (executor, _) = await ResolveAsync(cancellationToken);
         var (connectionString, _) = connection.Current;
         if (connectionString is null) throw new CapabilityUnavailableException("DB接続が設定されていません。");
+
+        await using var _ = await maintenance.AcquireAsync(cancellationToken);
 
         using var defaults = OptionFile.Create(connectionString);
         await using var file = File.OpenRead(path);

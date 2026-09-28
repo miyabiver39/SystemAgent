@@ -52,6 +52,7 @@ public static class DependencyInjection
             if (!connection.IsConfigured) options.AddInterceptors(UnconfiguredDatabaseInterceptor.Instance);
         });
         services.AddScoped<DatabaseMigrator>();
+        services.AddSingleton<IMaintenanceLock, MaintenanceLock>();
 
         var secretStorePath = Path.Combine(contentRootPath, configuration["SecretStore:Path"] ?? DefaultSecretStorePath);
         services.AddSingleton<ILocalSecretStore>(sp =>

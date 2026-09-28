@@ -127,6 +127,8 @@ app.UseWhen(
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+// 中央DBの復元中は、全ノードで更新系のAPIを受け付けない
+app.UseMaintenanceGuard();
 app.UseAntiforgery();
 
 app.MapControllers();
